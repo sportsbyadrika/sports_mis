@@ -1,0 +1,17 @@
+body {
+    min-height: 100vh;
+}
+
+.table-actions {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.card-dashboard {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card-dashboard:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
