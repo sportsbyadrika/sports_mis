@@ -14,6 +14,8 @@
                 <li class="nav-item"><a class="nav-link" href="dashboard.php">Dashboard</a></li>
                 <?php if ($user['role'] === 'super_admin'): ?>
                     <li class="nav-item"><a class="nav-link" href="events.php">Events</a></li>
+                    <li class="nav-item"><a class="nav-link" href="age_categories.php">Age Categories</a></li>
+                    <li class="nav-item"><a class="nav-link" href="event_master.php">Event Master</a></li>
                     <li class="nav-item"><a class="nav-link" href="event_admins.php">Event Admins</a></li>
                 <?php endif; ?>
                 <?php if ($user['role'] === 'event_admin'): ?>

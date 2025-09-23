@@ -68,6 +68,59 @@ function fetch_participant(mysqli $db, int $id, ?int $institution_id): ?array
     return $participant ?: null;
 }
 
+function process_participant_photo(?array $file, ?string $currentPath, array &$errors): ?string
+{
+    if (!$file || ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+        return $currentPath;
+    }
+
+    if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+        $errors['photo'] = 'Failed to upload passport photo.';
+        return null;
+    }
+
+    if (($file['size'] ?? 0) > 2 * 1024 * 1024) {
+        $errors['photo'] = 'Passport photo must be smaller than 2MB.';
+        return null;
+    }
+
+    $info = @getimagesize($file['tmp_name']);
+    if (!$info || !in_array($info[2], [IMAGETYPE_JPEG, IMAGETYPE_PNG], true)) {
+        $errors['photo'] = 'Passport photo must be a JPG or PNG image.';
+        return null;
+    }
+
+    $extension = $info[2] === IMAGETYPE_PNG ? 'png' : 'jpg';
+    $uploadDir = __DIR__ . '/uploads/participants';
+    if (!is_dir($uploadDir) && !mkdir($uploadDir, 0777, true) && !is_dir($uploadDir)) {
+        $errors['photo'] = 'Unable to prepare the upload directory.';
+        return null;
+    }
+
+    try {
+        $random = bin2hex(random_bytes(4));
+    } catch (Throwable $e) {
+        $random = uniqid('', true);
+    }
+
+    $filename = 'participant_' . time() . '_' . preg_replace('/[^a-zA-Z0-9_\-\.]/', '', $random) . '.' . $extension;
+    $destination = $uploadDir . '/' . $filename;
+
+    if (!move_uploaded_file($file['tmp_name'], $destination)) {
+        $errors['photo'] = 'Failed to save the uploaded passport photo.';
+        return null;
+    }
+
+    if ($currentPath) {
+        $existing = __DIR__ . '/' . ltrim($currentPath, '/');
+        if (is_file($existing)) {
+            @unlink($existing);
+        }
+    }
+
+    return 'uploads/participants/' . $filename;
+}
+
 if (is_post() && $can_manage) {
     $action = post_param('action');
     if (in_array($action, ['create', 'update'], true)) {
@@ -79,7 +132,29 @@ if (is_post() && $can_manage) {
             'contact_number' => trim((string) post_param('contact_number', '')),
             'address' => trim((string) post_param('address', '')),
             'email' => trim((string) post_param('email', '')),
+            'aadhaar_number' => trim((string) post_param('aadhaar_number', '')),
         ];
+
+        $data['aadhaar_number'] = preg_replace('/\D+/', '', $data['aadhaar_number']);
+        $photo_file = $_FILES['photo'] ?? null;
+        $current_photo_path = null;
+        $participant = null;
+
+        if ($action === 'update') {
+            $participant_id = (int) post_param('id');
+            $participant = fetch_participant($db, $participant_id, $institution_id);
+            if (!$participant) {
+                $errors['general'] = 'Participant not found.';
+            } elseif ($participant['status'] === 'submitted') {
+                $errors['general'] = 'Submitted participants cannot be edited.';
+            } else {
+                $current_photo_path = $participant['photo_path'] ?? null;
+            }
+        }
+
+        if ($action === 'create' && (!$photo_file || ($photo_file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE)) {
+            $errors['photo'] = 'Passport photo is required.';
+        }
 
         validate_required([
             'name' => 'Participant name',
@@ -87,35 +162,40 @@ if (is_post() && $can_manage) {
             'gender' => 'Gender',
             'guardian_name' => "Guardian's name",
             'contact_number' => 'Contact number',
+            'aadhaar_number' => 'Aadhaar number',
         ], $errors, array_merge($data, ['date_of_birth' => $data['date_of_birth'] ?? '', 'gender' => $data['gender'] ?? '']));
 
         if ($data['gender'] && !in_array($data['gender'], ['Male', 'Female'], true)) {
             $errors['gender'] = 'Invalid gender selection.';
         }
 
+        if ($data['aadhaar_number'] && !preg_match('/^\d{12}$/', $data['aadhaar_number'])) {
+            $errors['aadhaar_number'] = 'Aadhaar number must contain exactly 12 digits.';
+        }
+
+        if (!$errors) {
+            $photo_path = process_participant_photo($photo_file, $current_photo_path, $errors);
+            if (!$errors) {
+                $data['photo_path'] = $photo_path;
+            }
+        }
+
         if (!$errors) {
             if ($action === 'create') {
-                $stmt = $db->prepare('INSERT INTO participants (institution_id, event_id, name, date_of_birth, gender, guardian_name, contact_number, address, email, status, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, \'draft\', ?)');
+                $stmt = $db->prepare('INSERT INTO participants (institution_id, event_id, name, date_of_birth, gender, guardian_name, contact_number, address, email, aadhaar_number, photo_path, status, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, \'draft\', ?)');
                 $created_by = $user['id'];
-                $stmt->bind_param('iisssssssi', $institution_id, $event_id, $data['name'], $data['date_of_birth'], $data['gender'], $data['guardian_name'], $data['contact_number'], $data['address'], $data['email'], $created_by);
+                $stmt->bind_param('iisssssssssi', $institution_id, $event_id, $data['name'], $data['date_of_birth'], $data['gender'], $data['guardian_name'], $data['contact_number'], $data['address'], $data['email'], $data['aadhaar_number'], $data['photo_path'], $created_by);
                 $stmt->execute();
                 $stmt->close();
                 set_flash('success', 'Participant created successfully.');
             } else {
                 $participant_id = (int) post_param('id');
-                $participant = fetch_participant($db, $participant_id, $institution_id);
-                if (!$participant) {
-                    $errors['general'] = 'Participant not found.';
-                } elseif ($participant['status'] === 'submitted') {
-                    $errors['general'] = 'Submitted participants cannot be edited.';
-                } else {
-                    $stmt = $db->prepare('UPDATE participants SET name = ?, date_of_birth = ?, gender = ?, guardian_name = ?, contact_number = ?, address = ?, email = ?, updated_at = NOW() WHERE id = ?');
-                    $stmt->bind_param('sssssssi', $data['name'], $data['date_of_birth'], $data['gender'], $data['guardian_name'], $data['contact_number'], $data['address'], $data['email'], $participant_id);
-                    $stmt->execute();
-                    $stmt->close();
-                    set_flash('success', 'Participant updated successfully.');
-                    redirect('participants.php');
-                }
+                $stmt = $db->prepare('UPDATE participants SET name = ?, date_of_birth = ?, gender = ?, guardian_name = ?, contact_number = ?, address = ?, email = ?, aadhaar_number = ?, photo_path = ?, updated_at = NOW() WHERE id = ?');
+                $stmt->bind_param('sssssssssi', $data['name'], $data['date_of_birth'], $data['gender'], $data['guardian_name'], $data['contact_number'], $data['address'], $data['email'], $data['aadhaar_number'], $data['photo_path'], $participant_id);
+                $stmt->execute();
+                $stmt->close();
+                set_flash('success', 'Participant updated successfully.');
+                redirect('participants.php');
             }
             if (!$errors) {
                 redirect('participants.php');
@@ -124,10 +204,19 @@ if (is_post() && $can_manage) {
 
         $edit_participant = $data;
         $edit_participant['id'] = (int) post_param('id');
+        if (!isset($edit_participant['photo_path'])) {
+            $edit_participant['photo_path'] = $current_photo_path;
+        }
     } elseif ($action === 'delete') {
         $participant_id = (int) post_param('id');
         $participant = fetch_participant($db, $participant_id, $institution_id);
         if ($participant && $participant['status'] !== 'submitted') {
+            if (!empty($participant['photo_path'])) {
+                $photo_file = __DIR__ . '/' . ltrim($participant['photo_path'], '/');
+                if (is_file($photo_file)) {
+                    @unlink($photo_file);
+                }
+            }
             $stmt = $db->prepare('DELETE FROM participants WHERE id = ?');
             $stmt->bind_param('i', $participant_id);
             $stmt->execute();
@@ -300,8 +389,22 @@ $flash_error = get_flash('error');
                     <div class="fw-semibold"><?php echo sanitize($view_participant['contact_number']); ?></div>
                 </div>
                 <div class="col-md-4">
+                    <div class="text-muted small">Aadhaar Number</div>
+                    <div class="fw-semibold"><?php echo sanitize($view_participant['aadhaar_number']); ?></div>
+                </div>
+                <div class="col-md-4">
                     <div class="text-muted small">Email</div>
                     <div class="fw-semibold"><?php echo sanitize($view_participant['email']); ?></div>
+                </div>
+                <div class="col-md-4">
+                    <div class="text-muted small">Passport Photo</div>
+                    <?php if (!empty($view_participant['photo_path'])): ?>
+                        <div>
+                            <img src="<?php echo sanitize($view_participant['photo_path']); ?>" alt="Passport photo" class="img-thumbnail" style="max-width: 140px;">
+                        </div>
+                    <?php else: ?>
+                        <div class="text-muted">No photo uploaded</div>
+                    <?php endif; ?>
                 </div>
                 <div class="col-md-12">
                     <div class="text-muted small">Address</div>
@@ -326,7 +429,7 @@ $flash_error = get_flash('error');
                 <?php if (isset($errors['general'])): ?>
                     <div class="alert alert-danger"><?php echo sanitize($errors['general']); ?></div>
                 <?php endif; ?>
-                <form method="post">
+                <form method="post" enctype="multipart/form-data">
                     <input type="hidden" name="action" value="<?php echo $edit_participant ? 'update' : 'create'; ?>">
                     <input type="hidden" name="id" value="<?php echo (int) ($edit_participant['id'] ?? 0); ?>">
                     <div class="mb-3">
@@ -359,8 +462,25 @@ $flash_error = get_flash('error');
                         <?php if (isset($errors['contact_number'])): ?><div class="invalid-feedback"><?php echo sanitize($errors['contact_number']); ?></div><?php endif; ?>
                     </div>
                     <div class="mb-3">
+                        <label class="form-label" for="aadhaar_number">Aadhaar Number</label>
+                        <input type="text" class="form-control <?php echo isset($errors['aadhaar_number']) ? 'is-invalid' : ''; ?>" id="aadhaar_number" name="aadhaar_number" value="<?php echo sanitize($edit_participant['aadhaar_number'] ?? ''); ?>" required>
+                        <?php if (isset($errors['aadhaar_number'])): ?><div class="invalid-feedback"><?php echo sanitize($errors['aadhaar_number']); ?></div><?php endif; ?>
+                        <div class="form-text">Enter the 12-digit Aadhaar number for the participant.</div>
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label" for="email">Email</label>
                         <input type="email" class="form-control" id="email" name="email" value="<?php echo sanitize($edit_participant['email'] ?? ''); ?>">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="photo">Passport Photo</label>
+                        <?php if (!empty($edit_participant['photo_path'])): ?>
+                            <div class="mb-2">
+                                <img src="<?php echo sanitize($edit_participant['photo_path']); ?>" alt="Passport photo preview" class="img-thumbnail" style="max-width: 120px;">
+                            </div>
+                        <?php endif; ?>
+                        <input type="file" class="form-control <?php echo isset($errors['photo']) ? 'is-invalid' : ''; ?>" id="photo" name="photo" accept="image/png,image/jpeg" <?php echo !empty($edit_participant['photo_path']) ? '' : 'required'; ?>>
+                        <?php if (isset($errors['photo'])): ?><div class="invalid-feedback"><?php echo sanitize($errors['photo']); ?></div><?php endif; ?>
+                        <div class="form-text">Upload a JPG or PNG image up to 2MB.</div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label" for="address">Address</label>
@@ -411,6 +531,9 @@ $flash_error = get_flash('error');
                                 <?php if ($role !== 'institution_admin'): ?><td><?php echo sanitize($participant['institution_name']); ?></td><?php endif; ?>
                                 <td class="text-end">
                                     <div class="table-actions justify-content-end">
+                                        <a href="participant_events.php?participant_id=<?php echo (int) $participant['id']; ?>" class="btn btn-sm btn-outline-secondary" title="Manage Events">
+                                            <i class="bi bi-calendar-event"></i>
+                                        </a>
                                         <?php if ($can_manage && $participant['status'] === 'draft'): ?>
                                             <a href="participants.php?edit=<?php echo (int) $participant['id']; ?>" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
                                             <form method="post" onsubmit="return confirm('Delete this participant?');">
