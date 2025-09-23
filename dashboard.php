@@ -141,7 +141,7 @@ switch ($user['role']) {
             'label' => 'Participants',
             'icon' => 'bi-people-fill',
             'count' => fetch_count($db, 'SELECT COUNT(*) FROM participants WHERE event_id = ?', 'i', [$event_id]),
-            'link' => 'participants.php?event=' . $event_id,
+            'link' => 'event_staff_participants.php?event_id=' . $event_id,
         ];
         $cards[] = [
             'label' => 'Institutions',
