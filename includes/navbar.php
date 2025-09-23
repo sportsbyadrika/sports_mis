@@ -27,6 +27,9 @@
                 <?php if ($user['role'] === 'institution_admin'): ?>
                     <li class="nav-item"><a class="nav-link" href="participants.php">Participants</a></li>
                 <?php endif; ?>
+                <?php if ($user['role'] === 'event_staff'): ?>
+                    <li class="nav-item"><a class="nav-link" href="event_staff_participants.php">Participants</a></li>
+                <?php endif; ?>
             </ul>
             <div class="dropdown">
                 <a class="d-flex align-items-center text-white text-decoration-none dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
