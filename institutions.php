@@ -40,7 +40,9 @@ if (is_post()) {
             'spoc_name' => trim((string) post_param('spoc_name', '')),
             'designation' => trim((string) post_param('designation', '')),
             'contact_number' => trim((string) post_param('contact_number', '')),
+
             'affiliation_number' => trim((string) post_param('affiliation_number', '')),
+
             'address' => trim((string) post_param('address', '')),
             'event_id' => $event_id ?: (int) post_param('event_id'),
         ];
@@ -52,16 +54,20 @@ if (is_post()) {
 
         if (!$errors) {
             if ($action === 'create') {
+
                 $stmt = $db->prepare('INSERT INTO institutions (event_id, name, spoc_name, designation, contact_number, affiliation_number, address, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
                 $created_by = $user['id'];
                 $stmt->bind_param('issssssi', $data['event_id'], $data['name'], $data['spoc_name'], $data['designation'], $data['contact_number'], $data['affiliation_number'], $data['address'], $created_by);
+
                 $stmt->execute();
                 $stmt->close();
                 set_flash('success', 'Institution created successfully.');
             } else {
                 $institution_id = (int) post_param('id');
+
                 $stmt = $db->prepare('UPDATE institutions SET name = ?, spoc_name = ?, designation = ?, contact_number = ?, affiliation_number = ?, address = ? WHERE id = ?');
                 $stmt->bind_param('ssssssi', $data['name'], $data['spoc_name'], $data['designation'], $data['contact_number'], $data['affiliation_number'], $data['address'], $institution_id);
+
                 $stmt->execute();
                 $stmt->close();
                 set_flash('success', 'Institution updated successfully.');
@@ -107,12 +113,14 @@ if ($event_id) {
     $params[] = $event_id;
 }
 if ($search) {
+
     $conditions[] = '(i.name LIKE ? OR i.spoc_name LIKE ? OR i.affiliation_number LIKE ?)';
     $types .= 'sss';
     $like = '%' . $search . '%';
     $params[] = $like;
     $params[] = $like;
     $params[] = $like;
+
 }
 if ($conditions) {
     $sql .= ' WHERE ' . implode(' AND ', $conditions);
@@ -190,10 +198,12 @@ $flash = get_flash('success');
                         <input type="text" class="form-control" name="contact_number" id="contact_number" value="<?php echo sanitize($edit_institution['contact_number'] ?? ''); ?>">
                     </div>
                     <div class="mb-3">
+
                         <label class="form-label" for="affiliation_number">Affiliation Number</label>
                         <input type="text" class="form-control" name="affiliation_number" id="affiliation_number" value="<?php echo sanitize($edit_institution['affiliation_number'] ?? ''); ?>">
                     </div>
                     <div class="mb-3">
+
                         <label class="form-label" for="address">Address</label>
                         <textarea class="form-control" name="address" id="address" rows="3"><?php echo sanitize($edit_institution['address'] ?? ''); ?></textarea>
                     </div>
@@ -230,7 +240,9 @@ $flash = get_flash('success');
                                 <th>Name</th>
                                 <th>SPOC</th>
                                 <th>Contact</th>
+
                                 <th>Affiliation #</th>
+
                                 <th>Address</th>
                                 <th>Participants</th>
                                 <?php if ($user['role'] === 'super_admin'): ?><th>Event</th><?php endif; ?>
@@ -246,7 +258,9 @@ $flash = get_flash('success');
                                     <div class="text-muted small"><?php echo sanitize($institution['designation']); ?></div>
                                 </td>
                                 <td><?php echo sanitize($institution['contact_number']); ?></td>
+
                                 <td><?php echo sanitize($institution['affiliation_number']); ?></td>
+
                                 <td><?php echo sanitize($institution['address']); ?></td>
                                 <td><?php echo (int) $institution['participant_count']; ?></td>
                                 <?php if ($user['role'] === 'super_admin'): ?><td><?php echo sanitize($institution['event_name']); ?></td><?php endif; ?>
@@ -270,7 +284,9 @@ $flash = get_flash('success');
                         <?php endforeach; ?>
                         <?php if (!$institutions): ?>
                             <tr>
+
                                 <td colspan="<?php echo $user['role'] === 'super_admin' ? '8' : '7'; ?>" class="text-center py-4 text-muted">No institutions found.</td>
+
                             </tr>
                         <?php endif; ?>
                         </tbody>

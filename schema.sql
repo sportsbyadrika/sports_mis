@@ -19,7 +19,9 @@ CREATE TABLE institutions (
     spoc_name VARCHAR(150) NOT NULL,
     designation VARCHAR(150),
     contact_number VARCHAR(50),
+
     affiliation_number VARCHAR(100),
+
     address TEXT,
     created_by INT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
