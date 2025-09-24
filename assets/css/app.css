@@ -1,4 +1,5 @@
 :root {
+
     --app-color-light-gray: #f2f5f9;
     --app-color-light-gray-strong: #e4ebf5;
     --app-color-dark-blue: #1e3a5f;
@@ -9,6 +10,7 @@
     --app-color-light-green-strong: #5daf82;
     --app-color-border: #d2dce8;
     --app-card-shadow: rgba(30, 58, 95, 0.12);
+
 }
 
 body {
@@ -17,6 +19,7 @@ body {
     color: var(--app-color-text);
     font-family: "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     line-height: 1.6;
+
 }
 
 .bg-light {
@@ -239,4 +242,47 @@ h6 {
 
 .dropdown-menu {
     border-radius: 0.75rem;
+}
+
+.login-navbar {
+    background-color: var(--bs-light);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.login-navbar .login-back-link {
+    width: 2.5rem;
+    height: 2.5rem;
+    border: 1px solid rgba(var(--bs-primary-rgb), 0.25);
+    color: var(--bs-primary);
+    transition: all 0.2s ease-in-out;
+}
+
+.login-navbar .login-back-link:hover,
+.login-navbar .login-back-link:focus {
+    color: var(--bs-success);
+    border-color: rgba(var(--bs-success-rgb), 0.4);
+    background-color: rgba(var(--bs-success-rgb), 0.08);
+    text-decoration: none;
+}
+
+.login-navbar .login-app-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background-color: rgba(var(--bs-success-rgb), 0.12);
+    color: var(--bs-success);
+    font-size: 1.25rem;
+}
+
+.login-navbar .login-brand-text {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--bs-primary);
+    letter-spacing: 0.02em;
+}
+
+.login-card {
+    max-width: 420px;
+    margin: 0 auto;
+    border: 0;
 }
