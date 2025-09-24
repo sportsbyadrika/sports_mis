@@ -10,23 +10,11 @@ $success = null;
 if (is_post()) {
     $name = trim(post_param('name', $user['name']));
     $contact = trim(post_param('contact_number', $user['contact_number'] ?? ''));
-    $password = (string) post_param('password', '');
-    $confirm = (string) post_param('confirm_password', '');
-
     validate_required(['name' => 'Name'], $errors, ['name' => $name]);
 
-    if ($password && $password !== $confirm) {
-        $errors['confirm_password'] = 'Password confirmation does not match.';
-    }
-
     if (!$errors) {
-        $stmt = $db->prepare('UPDATE users SET name = ?, contact_number = ?' . ($password ? ', password_hash = ?' : '') . ' WHERE id = ?');
-        if ($password) {
-            $hash = password_hash($password, PASSWORD_DEFAULT);
-            $stmt->bind_param('sssi', $name, $contact, $hash, $user['id']);
-        } else {
-            $stmt->bind_param('ssi', $name, $contact, $user['id']);
-        }
+        $stmt = $db->prepare('UPDATE users SET name = ?, contact_number = ? WHERE id = ?');
+        $stmt->bind_param('ssi', $name, $contact, $user['id']);
         $stmt->execute();
         $stmt->close();
         $success = 'Profile updated successfully.';
@@ -58,16 +46,6 @@ if (is_post()) {
                     <div class="mb-3">
                         <label for="contact_number" class="form-label">Contact Number</label>
                         <input type="text" class="form-control" id="contact_number" name="contact_number" value="<?php echo sanitize($user['contact_number'] ?? ''); ?>">
-                    </div>
-                    <hr>
-                    <div class="mb-3">
-                        <label for="password" class="form-label">New Password</label>
-                        <input type="password" class="form-control" id="password" name="password" placeholder="Leave blank to keep current password">
-                    </div>
-                    <div class="mb-3">
-                        <label for="confirm_password" class="form-label">Confirm Password</label>
-                        <input type="password" class="form-control <?php echo isset($errors['confirm_password']) ? 'is-invalid' : ''; ?>" id="confirm_password" name="confirm_password">
-                        <?php if (isset($errors['confirm_password'])): ?><div class="invalid-feedback"><?php echo sanitize($errors['confirm_password']); ?></div><?php endif; ?>
                     </div>
                     <div class="d-grid">
                         <button type="submit" class="btn btn-primary">Save Changes</button>

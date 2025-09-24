@@ -41,6 +41,7 @@
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end shadow">
                     <li><a class="dropdown-item" href="profile.php">Profile</a></li>
+                    <li><a class="dropdown-item" href="change_password.php">Change Password</a></li>
                     <li><hr class="dropdown-divider"></li>
                     <li><a class="dropdown-item" href="logout.php">Logout</a></li>
                 </ul>
