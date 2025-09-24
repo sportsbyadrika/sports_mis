@@ -1,9 +1,9 @@
 <?php $user = current_user(); ?>
 <?php if ($user): ?>
-<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+<nav class="navbar navbar-expand-lg navbar-light navbar-app shadow-sm">
     <div class="container">
         <a class="navbar-brand d-flex align-items-center gap-2" href="dashboard.php">
-            <i class="bi bi-trophy"></i>
+            <i class="bi bi-trophy navbar-brand-icon"></i>
             <span><?php echo APP_NAME; ?></span>
         </a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar" aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -32,12 +32,12 @@
                 <?php endif; ?>
             </ul>
             <div class="dropdown">
-                <a class="d-flex align-items-center text-white text-decoration-none dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <a class="d-flex align-items-center text-decoration-none dropdown-toggle app-account-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                     <div class="text-end me-2">
                         <div class="fw-semibold small"><?php echo sanitize($user['name']); ?></div>
-                        <div class="small text-white-50 text-capitalize"><?php echo str_replace('_', ' ', sanitize($user['role'])); ?></div>
+                        <div class="small text-muted text-capitalize"><?php echo str_replace('_', ' ', sanitize($user['role'])); ?></div>
                     </div>
-                    <i class="bi bi-person-circle fs-4"></i>
+                    <i class="bi bi-person-circle fs-4 app-account-icon"></i>
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end shadow">
                     <li><a class="dropdown-item" href="profile.php">Profile</a></li>

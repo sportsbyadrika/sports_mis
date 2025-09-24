@@ -170,7 +170,7 @@ switch ($user['role']) {
                             <div class="text-muted text-uppercase small"><?php echo sanitize($card['label']); ?></div>
                             <div class="display-6 fw-bold"><?php echo (int) $card['count']; ?></div>
                         </div>
-                        <i class="<?php echo sanitize($card['icon']); ?> text-primary fs-1"></i>
+                        <i class="<?php echo sanitize($card['icon']); ?> text-accent fs-1"></i>
                     </div>
                 </div>
             </a>
