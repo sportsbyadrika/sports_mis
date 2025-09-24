@@ -32,22 +32,21 @@ if (is_post()) {
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <link href="assets/css/app.css" rel="stylesheet">
 </head>
-<body class="bg-light d-flex align-items-center justify-content-center" style="min-height: 100vh;">
-    <div class="card shadow-sm" style="min-width: 360px;">
-        <div class="card-body p-4">
-            <div class="text-center mb-4">
-                <div class="display-6 text-accent"><i class="bi bi-trophy"></i></div>
-                <h1 class="h4 mb-0"><?php echo APP_NAME; ?></h1>
-                <p class="text-muted">Sports Event Management Information System</p>
-
-            </div>
+<body class="d-flex flex-column min-vh-100" style="background-color: #f8f6f0;">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center" href="#">
+                <i class="bi bi-trophy-fill me-2"></i>
+                <?php echo APP_NAME; ?>
+            </a>
         </div>
     </nav>
+
     <main class="flex-grow-1 d-flex align-items-center justify-content-center py-5">
         <div class="container">
             <div class="row justify-content-center">
                 <div class="col-12 col-sm-10 col-md-8 col-lg-5 col-xl-4">
-                    <div class="card shadow-sm login-card">
+                    <div class="card shadow-sm border-0 login-card">
                         <div class="card-body p-4">
                             <div class="text-center mb-4">
                                 <div class="display-6 text-success"><i class="bi bi-trophy-fill"></i></div>
@@ -76,6 +75,12 @@ if (is_post()) {
             </div>
         </div>
     </main>
+
+    <footer class="bg-success-subtle border-top py-3 mt-auto">
+        <div class="container text-center">
+            <span class="text-success fw-semibold">&copy; <?php echo date('Y'); ?> <?php echo APP_NAME; ?></span>
+        </div>
+    </footer>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
