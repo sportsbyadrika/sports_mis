@@ -1,5 +1,39 @@
+:root {
+    --color-light-grey: #f4f6f8;
+    --color-light-green: #c8e6c9;
+    --color-dark-blue: #0b3d62;
+}
+
 body {
     min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--color-light-grey);
+}
+
+main {
+    flex: 1 0 auto;
+}
+
+.site-footer {
+    background: linear-gradient(180deg, var(--color-light-grey) 0%, #ffffff 100%);
+    border-top: 4px solid var(--color-light-green);
+    color: var(--color-dark-blue);
+}
+
+.site-footer small {
+    letter-spacing: 0.03em;
+}
+
+.site-footer a {
+    color: var(--color-dark-blue);
+    text-decoration-color: var(--color-light-green);
+}
+
+.site-footer a:hover,
+.site-footer a:focus {
+    color: #062440;
+    text-decoration-color: var(--color-dark-blue);
 }
 
 .table-actions {
