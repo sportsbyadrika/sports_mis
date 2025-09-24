@@ -35,7 +35,7 @@ if (is_post()) {
     <div class="card shadow-sm" style="min-width: 360px;">
         <div class="card-body p-4">
             <div class="text-center mb-4">
-                <div class="display-6 text-primary"><i class="bi bi-trophy"></i></div>
+                <div class="display-6 text-accent"><i class="bi bi-trophy"></i></div>
                 <h1 class="h4 mb-0"><?php echo APP_NAME; ?></h1>
                 <p class="text-muted">Sports Event Management Information System</p>
             </div>
