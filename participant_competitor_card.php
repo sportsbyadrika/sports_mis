@@ -67,6 +67,16 @@ if (!$event_name && $event_id) {
     $stmt->close();
 }
 
+$participant_age = calculate_age($participant['date_of_birth']);
+$age_categories = fetch_age_categories($db);
+$participant_age_category = determine_age_category_label($participant_age, $age_categories);
+
+$stmt = $db->prepare('SELECT em.name, em.code, em.event_type, ac.name AS age_category_name FROM participant_events pe JOIN event_master em ON em.id = pe.event_master_id JOIN age_categories ac ON ac.id = em.age_category_id WHERE pe.participant_id = ? ORDER BY em.name');
+$stmt->bind_param('i', $participant_id);
+$stmt->execute();
+$assigned_events = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
+
 $photo_src = !empty($participant['photo_path']) ? $participant['photo_path'] : null;
 $chest_number = $participant['chest_number'];
 $participant_name = $participant['name'];
@@ -134,6 +144,15 @@ $generated_on = date('d M Y');
             margin: 4px 0;
             font-size: 16px;
         }
+        .info-details {
+            display: grid;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        .info-details p {
+            margin: 0;
+            font-size: 15px;
+        }
         .chest-number {
             font-size: 32px;
             font-weight: 700;
@@ -165,6 +184,48 @@ $generated_on = date('d M Y');
             font-size: 14px;
             color: #6c757d;
         }
+        .events-section {
+            margin-top: 32px;
+        }
+        .events-section h3 {
+            margin: 0 0 12px;
+            font-size: 18px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #1e3a5f;
+        }
+        .events-list {
+            list-style: none;
+            padding-left: 0;
+            margin: 0;
+            display: grid;
+            gap: 8px;
+        }
+        .events-list li {
+            padding: 12px 16px;
+            border: 1px solid #d2dce8;
+            border-radius: 8px;
+            background: linear-gradient(135deg, rgba(121, 200, 155, 0.08), rgba(30, 58, 95, 0.05));
+            font-size: 15px;
+        }
+        .events-list .event-name {
+            font-weight: 600;
+            color: #1e3a5f;
+        }
+        .events-list .event-meta {
+            display: block;
+            font-size: 13px;
+            color: #5c6b80;
+            margin-top: 4px;
+        }
+        .events-empty {
+            padding: 12px 16px;
+            border: 1px dashed #d2dce8;
+            border-radius: 8px;
+            background: #f8f9fa;
+            color: #6c757d;
+            font-size: 15px;
+        }
         @media print {
             body {
                 margin: 0;
@@ -194,9 +255,37 @@ $generated_on = date('d M Y');
                 <?php if ($institution_name): ?>
                     <p><strong>Institution:</strong> <?php echo sanitize($institution_name); ?></p>
                 <?php endif; ?>
+                <div class="info-details">
+                    <p><strong>Age:</strong> <?php echo $participant_age !== null ? (int) $participant_age . ' years' : 'Not available'; ?></p>
+                    <p><strong>Age Category:</strong> <?php echo $participant_age_category ? sanitize($participant_age_category) : 'Not available'; ?></p>
+                    <p><strong>Gender:</strong> <?php echo sanitize($participant['gender']); ?></p>
+                </div>
                 <p><strong>Chest Number:</strong></p>
                 <div class="chest-number">#<?php echo sanitize((string) $chest_number); ?></div>
             </div>
+        </div>
+        <div class="events-section">
+            <h3>Participating Events</h3>
+            <?php if (!empty($assigned_events)): ?>
+                <ul class="events-list">
+                    <?php foreach ($assigned_events as $event): ?>
+                        <li>
+                            <span class="event-name"><?php echo sanitize($event['name']); ?></span>
+                            <span class="event-meta">
+                                <?php echo sanitize($event['code']); ?>
+                                <?php if (!empty($event['age_category_name'])): ?>
+                                    &bull; <?php echo sanitize($event['age_category_name']); ?>
+                                <?php endif; ?>
+                                <?php if (!empty($event['event_type'])): ?>
+                                    &bull; <?php echo sanitize($event['event_type']); ?> Event
+                                <?php endif; ?>
+                            </span>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            <?php else: ?>
+                <div class="events-empty">No events have been assigned to this participant.</div>
+            <?php endif; ?>
         </div>
         <div class="footer">
             <div class="meta">Generated on <?php echo sanitize($generated_on); ?></div>
