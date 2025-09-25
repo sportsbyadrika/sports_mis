@@ -42,6 +42,12 @@ $stmt->execute();
 $participants = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
 
+$stmt = $db->prepare('SELECT transfer_date, mode, amount, transaction_number, status, reviewed_at FROM fund_transfers WHERE institution_id = ? ORDER BY transfer_date DESC, created_at DESC');
+$stmt->bind_param('i', $institution_id);
+$stmt->execute();
+$fund_transfers = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
+
 $age_categories = fetch_age_categories($db);
 $report_date = date('d M Y H:i');
 $total_events_sum = 0;
@@ -163,6 +169,9 @@ unset($participant);
             body {
                 margin: 10mm;
             }
+            .page-break {
+                page-break-before: always;
+            }
         }
     </style>
 </head>
@@ -225,6 +234,40 @@ unset($participant);
         <?php else: ?>
             <tr>
                 <td colspan="9" style="text-align:center; padding:24px; color:#6c757d;">No approved participants found.</td>
+            </tr>
+        <?php endif; ?>
+        </tbody>
+    </table>
+    <div class="page-break"></div>
+    <h2 style="margin-top:32px; margin-bottom:16px;">Fund Transfer Submissions</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Sl. No</th>
+                <th>Transfer Date</th>
+                <th>Mode</th>
+                <th>Amount (₹)</th>
+                <th>Transaction Number</th>
+                <th>Status</th>
+                <th>Reviewed On</th>
+            </tr>
+        </thead>
+        <tbody>
+        <?php if ($fund_transfers): ?>
+            <?php foreach ($fund_transfers as $index => $transfer): ?>
+                <tr>
+                    <td><?php echo $index + 1; ?></td>
+                    <td><?php echo $transfer['transfer_date'] ? sanitize(date('d M Y', strtotime($transfer['transfer_date']))) : '<span style="color:#6c757d;">N/A</span>'; ?></td>
+                    <td><?php echo sanitize($transfer['mode']); ?></td>
+                    <td>₹<?php echo number_format((float) $transfer['amount'], 2); ?></td>
+                    <td><?php echo sanitize($transfer['transaction_number']); ?></td>
+                    <td style="text-transform:uppercase;"><strong><?php echo sanitize($transfer['status']); ?></strong></td>
+                    <td><?php echo $transfer['reviewed_at'] ? sanitize(date('d M Y', strtotime($transfer['reviewed_at']))) : '<span style="color:#6c757d;">Pending</span>'; ?></td>
+                </tr>
+            <?php endforeach; ?>
+        <?php else: ?>
+            <tr>
+                <td colspan="7" style="text-align:center; padding:24px; color:#6c757d;">No fund transfers have been submitted.</td>
             </tr>
         <?php endif; ?>
         </tbody>

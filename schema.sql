@@ -107,6 +107,28 @@ CREATE TABLE participant_events (
     CONSTRAINT fk_participant_events_institution FOREIGN KEY (institution_id) REFERENCES institutions(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE fund_transfers (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    event_id INT NOT NULL,
+    institution_id INT NOT NULL,
+    submitted_by INT NOT NULL,
+    transfer_date DATE NOT NULL,
+    mode ENUM('NEFT', 'UPI', 'Other') NOT NULL,
+    amount DECIMAL(12,2) NOT NULL,
+    transaction_number VARCHAR(120) NOT NULL,
+    reference_document_path VARCHAR(255) NOT NULL,
+    status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
+    remarks TEXT,
+    reviewed_by INT DEFAULT NULL,
+    reviewed_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_fund_transfers_event FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+    CONSTRAINT fk_fund_transfers_institution FOREIGN KEY (institution_id) REFERENCES institutions(id) ON DELETE CASCADE,
+    CONSTRAINT fk_fund_transfers_submitted_by FOREIGN KEY (submitted_by) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_fund_transfers_reviewed_by FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Default super administrator (password: admin123)
 INSERT INTO users (name, email, password_hash, role)
 VALUES ('Super Admin', 'admin@sportsmis.test', '$2y$12$trU5SxG4m7i1INbCwSkUrOeIjll/RGdg6o/P4qNJDiGqwy4D1ew8O', 'super_admin');

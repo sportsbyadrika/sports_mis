@@ -26,9 +26,11 @@
                 <?php endif; ?>
                 <?php if ($user['role'] === 'institution_admin'): ?>
                     <li class="nav-item"><a class="nav-link" href="participants.php">Participants</a></li>
+                    <li class="nav-item"><a class="nav-link" href="institution_fund_transfers.php">Fund Transfers</a></li>
                 <?php endif; ?>
                 <?php if ($user['role'] === 'event_staff'): ?>
                     <li class="nav-item"><a class="nav-link" href="event_staff_participants.php">Participants</a></li>
+                    <li class="nav-item"><a class="nav-link" href="event_staff_fund_transfers.php">Fund Transfers</a></li>
                 <?php endif; ?>
             </ul>
             <div class="dropdown">
