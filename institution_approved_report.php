@@ -1,0 +1,245 @@
+<?php
+require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/participant_helpers.php';
+
+require_login();
+require_role(['institution_admin']);
+
+$user = current_user();
+$db = get_db_connection();
+
+if (!$user['institution_id']) {
+    http_response_code(403);
+    echo '<p>No institution assigned to your account.</p>';
+    return;
+}
+
+$institution_id = (int) $user['institution_id'];
+
+$stmt = $db->prepare('SELECT i.name, e.name AS event_name FROM institutions i JOIN events e ON e.id = i.event_id WHERE i.id = ?');
+$stmt->bind_param('i', $institution_id);
+$stmt->execute();
+$context = $stmt->get_result()->fetch_assoc();
+$stmt->close();
+
+if (!$context) {
+    http_response_code(404);
+    echo '<p>Unable to load institution details.</p>';
+    return;
+}
+
+$stats_subquery = 'SELECT participant_id, COUNT(*) AS total_events, COALESCE(SUM(fees), 0) AS total_fees FROM participant_events GROUP BY participant_id';
+$sql = "SELECT p.id, p.name, p.date_of_birth, p.gender, p.aadhaar_number, p.chest_number, p.photo_path, p.status,
+        stats.total_events, stats.total_fees
+        FROM participants p
+        LEFT JOIN ($stats_subquery) stats ON stats.participant_id = p.id
+        WHERE p.institution_id = ? AND p.status = 'approved'
+        ORDER BY p.name";
+
+$stmt = $db->prepare($sql);
+$stmt->bind_param('i', $institution_id);
+$stmt->execute();
+$participants = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
+
+$age_categories = fetch_age_categories($db);
+$report_date = date('d M Y H:i');
+$total_events_sum = 0;
+$total_fees_sum = 0.0;
+
+foreach ($participants as &$participant) {
+    $participant['age'] = calculate_age($participant['date_of_birth']);
+    $participant['age_category_label'] = determine_age_category_label($participant['age'], $age_categories);
+    $participant['total_events'] = (int) ($participant['total_events'] ?? 0);
+    $participant['total_fees'] = (float) ($participant['total_fees'] ?? 0);
+    $total_events_sum += $participant['total_events'];
+    $total_fees_sum += $participant['total_fees'];
+}
+unset($participant);
+
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Approved Participants Report - <?php echo sanitize($context['institution_name'] ?? $context['name']); ?></title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 30px;
+            color: #212529;
+            background: #fff;
+        }
+        h1, h2 {
+            margin: 0;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+        .header h1 {
+            font-size: 26px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .header h2 {
+            font-size: 20px;
+            margin-top: 6px;
+            color: #495057;
+        }
+        .meta {
+            margin-bottom: 24px;
+            font-size: 14px;
+            color: #495057;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        th, td {
+            border: 1px solid #adb5bd;
+            padding: 8px;
+            vertical-align: top;
+        }
+        th {
+            background: #f1f3f5;
+            text-transform: uppercase;
+            font-size: 12px;
+            letter-spacing: .5px;
+        }
+        td.photo-cell {
+            width: 90px;
+            text-align: center;
+        }
+        td.photo-cell img {
+            width: 80px;
+            height: 100px;
+            object-fit: cover;
+            border: 1px solid #ced4da;
+        }
+        .totals-row {
+            font-weight: 600;
+            background: #f8f9fa;
+        }
+        .declaration {
+            margin-top: 32px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .signatures {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 48px;
+        }
+        .signature-block {
+            text-align: center;
+            flex: 1;
+        }
+        .signature-line {
+            border-top: 1px solid #212529;
+            margin: 50px auto 12px;
+            width: 240px;
+        }
+        .signature-label {
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 12px;
+            letter-spacing: .5px;
+        }
+        .seal-box {
+            border: 1px dashed #495057;
+            width: 140px;
+            height: 140px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: #6c757d;
+            text-transform: uppercase;
+        }
+        @media print {
+            body {
+                margin: 10mm;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1><?php echo sanitize($context['event_name']); ?></h1>
+        <h2><?php echo sanitize($context['name']); ?></h2>
+    </div>
+    <div class="meta">Report generated on: <?php echo sanitize($report_date); ?></div>
+    <table>
+        <thead>
+            <tr>
+                <th>Sl. No</th>
+                <th>Chest No.</th>
+                <th>Photo</th>
+                <th>Name of Participant</th>
+                <th>DOB / Age Category</th>
+                <th>Gender</th>
+                <th>Aadhaar Number</th>
+                <th>Total Events</th>
+                <th>Total Fees (₹)</th>
+            </tr>
+        </thead>
+        <tbody>
+        <?php if ($participants): ?>
+            <?php foreach ($participants as $index => $participant): ?>
+                <tr>
+                    <td><?php echo $index + 1; ?></td>
+                    <td><?php echo $participant['chest_number'] ? sanitize((string) $participant['chest_number']) : '<span style="color:#6c757d;">N/A</span>'; ?></td>
+                    <td class="photo-cell">
+                        <?php if (!empty($participant['photo_path'])): ?>
+                            <img src="<?php echo sanitize($participant['photo_path']); ?>" alt="Photo">
+                        <?php else: ?>
+                            <span style="color:#6c757d;">No Photo</span>
+                        <?php endif; ?>
+                    </td>
+                    <td><?php echo sanitize($participant['name']); ?></td>
+                    <td>
+                        <?php echo sanitize(format_date($participant['date_of_birth'])); ?><br>
+                        <?php if ($participant['age'] !== null): ?>
+                            <span>Age: <?php echo (int) $participant['age']; ?> yrs</span><br>
+                        <?php endif; ?>
+                        <?php if ($participant['age_category_label']): ?>
+                            <span>Category: <?php echo sanitize($participant['age_category_label']); ?></span>
+                        <?php else: ?>
+                            <span style="color:#6c757d;">No category</span>
+                        <?php endif; ?>
+                    </td>
+                    <td><?php echo sanitize($participant['gender']); ?></td>
+                    <td><?php echo sanitize($participant['aadhaar_number']); ?></td>
+                    <td style="text-align:center;"><?php echo (int) $participant['total_events']; ?></td>
+                    <td style="text-align:right;"><?php echo number_format($participant['total_fees'], 2); ?></td>
+                </tr>
+            <?php endforeach; ?>
+            <tr class="totals-row">
+                <td colspan="7" style="text-align:right;">Grand Total</td>
+                <td style="text-align:center;"><?php echo (int) $total_events_sum; ?></td>
+                <td style="text-align:right;"><?php echo number_format($total_fees_sum, 2); ?></td>
+            </tr>
+        <?php else: ?>
+            <tr>
+                <td colspan="9" style="text-align:center; padding:24px; color:#6c757d;">No approved participants found.</td>
+            </tr>
+        <?php endif; ?>
+        </tbody>
+    </table>
+    <div class="declaration">
+        I hereby declare that all the details, especially the age, date of birth, and Aadhaar number of the participants, have been verified by the Head of Institution.
+    </div>
+    <div class="signatures">
+        <div class="signature-block">
+            <div class="signature-line"></div>
+            <div class="signature-label">Head of Institution</div>
+        </div>
+        <div class="signature-block">
+            <div class="seal-box">Institution Seal</div>
+        </div>
+    </div>
+</body>
+</html>

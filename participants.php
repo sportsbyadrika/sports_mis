@@ -168,6 +168,9 @@ $flash_error = get_flash('error');
         <p class="text-muted mb-0">Manage participant registrations for the event.</p>
     </div>
     <div class="d-flex flex-column flex-md-row align-items-md-center gap-2">
+        <?php if ($role === 'institution_admin'): ?>
+            <a href="institution_approved_report.php" class="btn btn-outline-primary" target="_blank">Approved Participants Report</a>
+        <?php endif; ?>
         <?php if ($can_manage): ?>
             <a href="participant_form.php" class="btn btn-primary">Add Participant</a>
         <?php endif; ?>
