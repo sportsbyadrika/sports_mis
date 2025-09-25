@@ -97,6 +97,10 @@ if (!$participant) {
     return;
 }
 
+$participant_age = calculate_age($participant['date_of_birth']);
+$age_categories = fetch_age_categories($db);
+$participant_age_category = determine_age_category_label($participant_age, $age_categories);
+
 $stmt = $db->prepare('SELECT pe.id, em.name, em.code, em.label, em.event_type, em.fees, ac.name AS age_category_name FROM participant_events pe JOIN event_master em ON em.id = pe.event_master_id JOIN age_categories ac ON ac.id = em.age_category_id WHERE pe.participant_id = ? ORDER BY em.name');
 $stmt->bind_param('i', $participant_id);
 $stmt->execute();
@@ -120,7 +124,13 @@ foreach ($assigned_events as $event) {
     <div class="card-header bg-white d-flex justify-content-between align-items-center">
         <div>
             <h2 class="h6 mb-0"><?php echo sanitize($participant['name']); ?></h2>
-            <span class="badge bg-<?php echo $participant['status'] === 'submitted' ? 'success' : 'secondary'; ?> text-uppercase"><?php echo sanitize($participant['status']); ?></span>
+            <?php $status_class = in_array($participant['status'], ['submitted', 'approved'], true) ? 'success' : 'secondary'; ?>
+            <span class="badge bg-<?php echo $status_class; ?> text-uppercase"><?php echo sanitize($participant['status']); ?></span>
+            <?php if ($participant['status'] === 'approved' && $participant['chest_number']): ?>
+                <div class="mt-2">
+                    <span class="badge bg-primary">Chest No: <?php echo sanitize((string) $participant['chest_number']); ?></span>
+                </div>
+            <?php endif; ?>
         </div>
         <div class="text-end">
             <div class="small text-muted">Total Events</div>
@@ -138,6 +148,14 @@ foreach ($assigned_events as $event) {
             <div class="col-md-4">
                 <div class="text-muted small">Date of Birth</div>
                 <div class="fw-semibold"><?php echo format_date($participant['date_of_birth']); ?></div>
+            </div>
+            <div class="col-md-4">
+                <div class="text-muted small">Age</div>
+                <div class="fw-semibold"><?php echo $participant_age !== null ? (int) $participant_age . ' years' : '<span class="text-muted">Not available</span>'; ?></div>
+            </div>
+            <div class="col-md-4">
+                <div class="text-muted small">Age Category</div>
+                <div class="fw-semibold"><?php echo $participant_age_category ? sanitize($participant_age_category) : '<span class="text-muted">No age category</span>'; ?></div>
             </div>
             <div class="col-md-4">
                 <div class="text-muted small">Gender</div>
@@ -168,6 +186,10 @@ foreach ($assigned_events as $event) {
                 <?php else: ?>
                     <div class="text-muted">No photo uploaded</div>
                 <?php endif; ?>
+            </div>
+            <div class="col-md-4">
+                <div class="text-muted small">Chest Number</div>
+                <div class="fw-semibold"><?php echo $participant['status'] === 'approved' && $participant['chest_number'] ? sanitize((string) $participant['chest_number']) : '<span class="text-muted">Not assigned</span>'; ?></div>
             </div>
             <div class="col-md-12">
                 <div class="text-muted small">Address</div>
