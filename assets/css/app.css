@@ -13,13 +13,24 @@
 
 }
 
+html {
+    height: 100%;
+}
+
 body {
     min-height: 100vh;
+    display: flex;
+    flex-direction: column;
     background-color: var(--app-color-light-gray);
     color: var(--app-color-text);
     font-family: "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     line-height: 1.6;
 
+}
+
+main {
+    flex: 1 0 auto;
+    width: 100%;
 }
 
 .bg-light {
@@ -60,9 +71,10 @@ h6 {
     color: var(--app-color-dark-blue-strong);
 }
 
-.navbar-app .navbar-brand-icon {
-    color: var(--app-color-light-green);
-    font-size: 1.5rem;
+.navbar-app .navbar-brand-logo {
+    height: 40px;
+    width: 40px;
+    object-fit: contain;
 }
 
 .navbar-app .navbar-toggler {
@@ -77,20 +89,28 @@ h6 {
     color: var(--app-color-muted);
     font-weight: 500;
     border-bottom: 3px solid transparent;
-    padding-bottom: 0.5rem;
+    padding: 0.5rem 0.85rem;
     margin-bottom: -3px;
-    transition: color 0.2s ease, border-color 0.2s ease;
+    margin-left: 0.25rem;
+    margin-right: 0.25rem;
+    border-radius: 0.75rem;
+    transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .navbar-app .nav-link:hover,
 .navbar-app .nav-link:focus {
     color: var(--app-color-dark-blue);
     border-bottom-color: rgba(121, 200, 155, 0.5);
+    background-color: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 1rem 2rem -1.5rem rgba(30, 58, 95, 0.45);
+    transform: translateY(-1px);
 }
 
 .navbar-app .nav-link.active {
     color: var(--app-color-dark-blue);
     border-bottom-color: var(--app-color-light-green);
+    background-color: rgba(121, 200, 155, 0.15);
+    box-shadow: 0 1rem 2.25rem -1.5rem rgba(121, 200, 155, 0.4);
 }
 
 .navbar-app .app-account-toggle {
@@ -198,6 +218,33 @@ h6 {
 .btn-link:hover,
 .btn-link:focus {
     color: var(--app-color-dark-blue-strong);
+}
+
+.site-footer {
+    background-color: rgba(242, 245, 249, 0.8);
+    border-top: 1px solid var(--app-color-border);
+    margin-top: auto;
+}
+
+.footer-brand span {
+    color: var(--app-color-dark-blue);
+}
+
+.footer-logo {
+    height: 40px;
+    width: 40px;
+    object-fit: contain;
+}
+
+.footer-link {
+    color: var(--app-color-dark-blue);
+    font-weight: 600;
+}
+
+.footer-link:hover,
+.footer-link:focus {
+    color: var(--app-color-dark-blue-strong);
+    text-decoration: underline;
 }
 
 .text-accent {

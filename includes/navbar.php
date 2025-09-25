@@ -3,7 +3,7 @@
 <nav class="navbar navbar-expand-lg navbar-light navbar-app shadow-sm">
     <div class="container">
         <a class="navbar-brand d-flex align-items-center gap-2" href="dashboard.php">
-            <i class="bi bi-trophy navbar-brand-icon"></i>
+            <img src="assets/images/logo.svg" alt="SportsbyA Tech logo" class="navbar-brand-logo" height="40" width="40">
             <span><?php echo APP_NAME; ?></span>
         </a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar" aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">

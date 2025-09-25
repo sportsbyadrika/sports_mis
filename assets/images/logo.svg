@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-labelledby="title desc">
+  <title id="title">SportsbyA Logo</title>
+  <desc id="desc">Stylised S letter logo for SportsbyA Tech</desc>
+  <defs>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e3a5f"/>
+      <stop offset="100%" stop-color="#79c89b"/>
+    </linearGradient>
+  </defs>
+  <circle cx="60" cy="60" r="56" fill="url(#gradient)" stroke="#0f2138" stroke-width="4"/>
+  <path d="M40 38c6-12 22-16 34-9 9 5 13 15 10 24-3 11-15 14-24 17-6 2-12 4-14 9-2 5 2 11 7 13 6 3 14 1 18-4" fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
