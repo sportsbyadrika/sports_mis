@@ -103,7 +103,7 @@ if (is_post() && $can_manage) {
 }
 
 $statsSubquery = 'SELECT participant_id, COUNT(*) AS total_events, COALESCE(SUM(fees), 0) AS total_fees FROM participant_events GROUP BY participant_id';
-$sql = "SELECT p.id, p.institution_id, p.event_id, p.name, p.email, p.date_of_birth, p.gender, p.guardian_name, p.contact_number, p.status, i.name AS institution_name, COALESCE(stats.total_events, 0) AS total_events, COALESCE(stats.total_fees, 0) AS total_fees FROM participants p LEFT JOIN institutions i ON i.id = p.institution_id LEFT JOIN ($statsSubquery) stats ON stats.participant_id = p.id";
+$sql = "SELECT p.id, p.institution_id, p.event_id, p.name, p.email, p.date_of_birth, p.gender, p.guardian_name, p.contact_number, p.status, p.chest_number, i.name AS institution_name, COALESCE(stats.total_events, 0) AS total_events, COALESCE(stats.total_fees, 0) AS total_fees FROM participants p LEFT JOIN institutions i ON i.id = p.institution_id LEFT JOIN ($statsSubquery) stats ON stats.participant_id = p.id";
 $conditions = [];
 $params = [];
 $types = '';
@@ -143,6 +143,14 @@ if ($params) {
 $stmt->execute();
 $participants = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
+
+$age_categories = fetch_age_categories($db);
+
+foreach ($participants as &$participant) {
+    $participant['age'] = calculate_age($participant['date_of_birth']);
+    $participant['age_category_label'] = determine_age_category_label($participant['age'], $age_categories);
+}
+unset($participant);
 
 $total_events_sum = 0;
 $total_fees_sum = 0.0;
@@ -196,6 +204,7 @@ $flash_error = get_flash('error');
             <table class="table table-striped align-middle">
                 <thead>
                     <tr>
+                        <th>#</th>
                         <th>Name</th>
                         <th>DOB</th>
                         <th>Gender</th>
@@ -204,25 +213,45 @@ $flash_error = get_flash('error');
                         <th class="text-center">Total Events</th>
                         <th class="text-end">Total Fees</th>
                         <th>Status</th>
+                        <th class="text-center">Chest No.</th>
                         <?php if ($role !== 'institution_admin'): ?><th>Institution</th><?php endif; ?>
                         <th class="text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                <?php foreach ($participants as $participant): ?>
+                <?php foreach ($participants as $index => $participant): ?>
                     <tr>
+                        <td class="text-muted small"><?php echo $index + 1; ?></td>
                         <td>
                             <div class="fw-semibold"><?php echo sanitize($participant['name']); ?></div>
                             <div class="text-muted small"><?php echo sanitize($participant['email']); ?></div>
                         </td>
-                        <td><?php echo format_date($participant['date_of_birth']); ?></td>
+                        <td>
+                            <div class="fw-semibold"><?php echo format_date($participant['date_of_birth']); ?></div>
+                            <?php if ($participant['age'] !== null): ?>
+                                <div class="text-muted small">Age: <?php echo (int) $participant['age']; ?></div>
+                            <?php endif; ?>
+                            <?php if ($participant['age_category_label']): ?>
+                                <div class="text-muted small"><?php echo sanitize($participant['age_category_label']); ?></div>
+                            <?php else: ?>
+                                <div class="text-muted small text-nowrap text-secondary">No age category</div>
+                            <?php endif; ?>
+                        </td>
                         <td><?php echo sanitize($participant['gender']); ?></td>
                         <td><?php echo sanitize($participant['guardian_name']); ?></td>
                         <td><?php echo sanitize($participant['contact_number']); ?></td>
                         <td class="text-center"><?php echo (int) $participant['total_events']; ?></td>
                         <td class="text-end">₹<?php echo number_format((float) $participant['total_fees'], 2); ?></td>
                         <td>
-                            <span class="badge bg-<?php echo $participant['status'] === 'submitted' ? 'success' : 'secondary'; ?> text-uppercase"><?php echo sanitize($participant['status']); ?></span>
+                            <?php $status_class = in_array($participant['status'], ['submitted', 'approved'], true) ? 'success' : 'secondary'; ?>
+                            <span class="badge bg-<?php echo $status_class; ?> text-uppercase"><?php echo sanitize($participant['status']); ?></span>
+                        </td>
+                        <td class="text-center">
+                            <?php if ($participant['status'] === 'approved' && $participant['chest_number']): ?>
+                                <span class="fw-semibold"><?php echo sanitize((string) $participant['chest_number']); ?></span>
+                            <?php else: ?>
+                                <span class="text-muted small">Pending</span>
+                            <?php endif; ?>
                         </td>
                         <?php if ($role !== 'institution_admin'): ?><td><?php echo sanitize($participant['institution_name']); ?></td><?php endif; ?>
                         <td class="text-end">
@@ -250,14 +279,14 @@ $flash_error = get_flash('error');
                 <?php endforeach; ?>
                 <?php if ($participants): ?>
                     <tr class="fw-semibold">
-                        <td colspan="5" class="text-end">Total</td>
+                        <td colspan="6" class="text-end">Total</td>
                         <td class="text-center"><?php echo (int) $total_events_sum; ?></td>
                         <td class="text-end">₹<?php echo number_format($total_fees_sum, 2); ?></td>
-                        <td colspan="<?php echo $role !== 'institution_admin' ? '3' : '2'; ?>"></td>
+                        <td colspan="<?php echo $role !== 'institution_admin' ? '4' : '3'; ?>"></td>
                     </tr>
                 <?php else: ?>
                     <tr>
-                        <td colspan="<?php echo $role !== 'institution_admin' ? '10' : '9'; ?>" class="text-center text-muted py-4">No participants found.</td>
+                        <td colspan="<?php echo $role !== 'institution_admin' ? '12' : '11'; ?>" class="text-center text-muted py-4">No participants found.</td>
                     </tr>
                 <?php endif; ?>
                 </tbody>
