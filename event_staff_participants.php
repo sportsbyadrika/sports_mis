@@ -13,28 +13,37 @@ if (!$user['event_id']) {
 }
 
 $assigned_event_id = (int) $user['event_id'];
-$selected_event_id = (int) get_param('event_id', 0) ?: $assigned_event_id;
-
-// Ensure the selected event is restricted to the staff member's assignment.
-if ($selected_event_id !== $assigned_event_id) {
-    $selected_event_id = $assigned_event_id;
-}
-
 $search = trim((string) get_param('q', ''));
+$selected_institution_id = (int) get_param('institution_id', 0);
 
-$events = [];
-$stmt = $db->prepare('SELECT id, name FROM events WHERE id = ? ORDER BY name');
+// Load institutions that have participants registered for the assigned event.
+$institutions = [];
+$stmt = $db->prepare('SELECT DISTINCT i.id, i.name
+    FROM participants p
+    INNER JOIN institutions i ON i.id = p.institution_id
+    WHERE p.event_id = ?
+    ORDER BY i.name');
 $stmt->bind_param('i', $assigned_event_id);
 $stmt->execute();
-$events = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$institutions = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
 
 $types = 'i';
-$params = [$selected_event_id];
-$sql = "SELECT p.name, p.gender, p.contact_number, p.status, i.name AS institution_name
+$params = [$assigned_event_id];
+$sql = "SELECT p.id, p.name, p.gender, p.contact_number, p.status, p.chest_number,
+               i.name AS institution_name,
+               COUNT(pe.id) AS event_count,
+               COALESCE(SUM(pe.fees), 0) AS total_fees
         FROM participants p
         LEFT JOIN institutions i ON i.id = p.institution_id
+        LEFT JOIN participant_events pe ON pe.participant_id = p.id
         WHERE p.event_id = ?";
+
+if ($selected_institution_id > 0) {
+    $sql .= ' AND p.institution_id = ?';
+    $params[] = $selected_institution_id;
+    $types .= 'i';
+}
 
 if ($search !== '') {
     $sql .= ' AND p.name LIKE ?';
@@ -42,6 +51,7 @@ if ($search !== '') {
     $types .= 's';
 }
 
+$sql .= ' GROUP BY p.id, p.name, p.gender, p.contact_number, p.status, p.chest_number, i.name';
 $sql .= ' ORDER BY p.name';
 
 $stmt = $db->prepare($sql);
@@ -60,11 +70,12 @@ $stmt->close();
     <div class="card-body">
         <form method="get" class="row g-3 align-items-end">
             <div class="col-md-4">
-                <label for="event_id" class="form-label">Event</label>
-                <select name="event_id" id="event_id" class="form-select">
-                    <?php foreach ($events as $event): ?>
-                        <option value="<?php echo (int) $event['id']; ?>" <?php echo $event['id'] == $selected_event_id ? 'selected' : ''; ?>>
-                            <?php echo sanitize($event['name']); ?>
+                <label for="institution_id" class="form-label">Participating Institution</label>
+                <select name="institution_id" id="institution_id" class="form-select">
+                    <option value="0">All Institutions</option>
+                    <?php foreach ($institutions as $institution): ?>
+                        <option value="<?php echo (int) $institution['id']; ?>" <?php echo $institution['id'] == $selected_institution_id ? 'selected' : ''; ?>>
+                            <?php echo sanitize($institution['name']); ?>
                         </option>
                     <?php endforeach; ?>
                 </select>
@@ -89,24 +100,44 @@ $stmt->close();
                 <table class="table table-striped align-middle">
                     <thead>
                         <tr>
+                            <th scope="col">#</th>
                             <th>Name</th>
                             <th>Institution</th>
                             <th>Gender</th>
                             <th>Contact</th>
+                            <th class="text-center">Participating Events</th>
+                            <th class="text-end">Total Fees</th>
                             <th>Status</th>
+                            <th class="text-end">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($participants as $participant): ?>
+                        <?php
+                        $status_classes = [
+                            'draft' => 'secondary',
+                            'submitted' => 'primary',
+                            'approved' => 'success',
+                            'rejected' => 'danger',
+                        ];
+                        ?>
+                        <?php foreach ($participants as $index => $participant): ?>
                             <tr>
+                                <td><?php echo (int) ($index + 1); ?></td>
                                 <td><?php echo sanitize($participant['name']); ?></td>
                                 <td><?php echo sanitize($participant['institution_name'] ?? ''); ?></td>
                                 <td><?php echo sanitize($participant['gender']); ?></td>
                                 <td><?php echo sanitize($participant['contact_number']); ?></td>
+                                <td class="text-center"><?php echo (int) $participant['event_count']; ?></td>
+                                <td class="text-end">₹<?php echo number_format((float) $participant['total_fees'], 2); ?></td>
                                 <td>
-                                    <span class="badge bg-<?php echo $participant['status'] === 'submitted' ? 'success' : 'secondary'; ?> text-uppercase">
+                                    <span class="badge bg-<?php echo $status_classes[$participant['status']] ?? 'secondary'; ?> text-uppercase">
                                         <?php echo sanitize($participant['status']); ?>
                                     </span>
+                                </td>
+                                <td class="text-end">
+                                    <a href="event_staff_participant_view.php?participant_id=<?php echo (int) $participant['id']; ?>" class="btn btn-sm btn-outline-primary">
+                                        View
+                                    </a>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
