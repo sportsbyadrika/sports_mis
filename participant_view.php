@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/includes/header.php';
+require_once __DIR__ . '/includes/participant_helpers.php';
 require_login();
 require_role(['institution_admin', 'event_admin', 'event_staff', 'super_admin']);
 
@@ -49,47 +50,6 @@ if (!$participant_id) {
     return;
 }
 
-function load_participant_with_access(mysqli $db, int $participant_id, ?int $institution_id, ?int $event_id, string $role): ?array
-{
-    $sql = 'SELECT p.*, i.name AS institution_name FROM participants p LEFT JOIN institutions i ON i.id = p.institution_id WHERE p.id = ?';
-    $params = [$participant_id];
-    $types = 'i';
-
-    if ($role === 'institution_admin') {
-        $sql .= ' AND p.institution_id = ?';
-        $params[] = $institution_id;
-        $types .= 'i';
-    } elseif ($role === 'event_admin' || $role === 'event_staff') {
-        $sql .= ' AND p.event_id = ?';
-        $params[] = $event_id;
-        $types .= 'i';
-        if ($institution_id) {
-            $sql .= ' AND p.institution_id = ?';
-            $params[] = $institution_id;
-            $types .= 'i';
-        }
-    } elseif ($role === 'super_admin') {
-        if ($event_id) {
-            $sql .= ' AND p.event_id = ?';
-            $params[] = $event_id;
-            $types .= 'i';
-        }
-        if ($institution_id) {
-            $sql .= ' AND p.institution_id = ?';
-            $params[] = $institution_id;
-            $types .= 'i';
-        }
-    }
-
-    $stmt = $db->prepare($sql);
-    $stmt->bind_param($types, ...$params);
-    $stmt->execute();
-    $participant = $stmt->get_result()->fetch_assoc();
-    $stmt->close();
-
-    return $participant ?: null;
-}
-
 $participant = load_participant_with_access($db, $participant_id, $institution_id, $event_id, $role);
 if (!$participant) {
     echo '<div class="alert alert-danger">Unable to load participant details or insufficient permissions.</div>';
@@ -118,7 +78,22 @@ foreach ($assigned_events as $event) {
         <h1 class="h4 mb-0">Participant Details</h1>
         <p class="text-muted mb-0">Review registration information and participation history.</p>
     </div>
-    <a href="participants.php" class="btn btn-outline-secondary">Close</a>
+    <div class="d-flex gap-2">
+        <?php if ($participant['status'] === 'approved' && $participant['chest_number']): ?>
+            <?php
+                $card_params = ['id' => $participant_id];
+                if (in_array($role, ['event_admin', 'event_staff', 'super_admin'], true) && $institution_id) {
+                    $card_params['institution_id'] = $institution_id;
+                }
+                if ($role === 'super_admin' && $event_id) {
+                    $card_params['event_id'] = $event_id;
+                }
+                $card_url = 'participant_competitor_card.php?' . http_build_query($card_params);
+            ?>
+            <a href="<?php echo sanitize($card_url); ?>" target="_blank" class="btn btn-outline-primary">Competitor Card</a>
+        <?php endif; ?>
+        <a href="participants.php" class="btn btn-outline-secondary">Close</a>
+    </div>
 </div>
 <div class="card shadow-sm mb-4">
     <div class="card-header bg-white d-flex justify-content-between align-items-center">
