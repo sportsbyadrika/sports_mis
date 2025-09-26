@@ -42,6 +42,31 @@ $stmt->execute();
 $participants = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
 
+$stmt = $db->prepare("SELECT te.id, te.team_name, te.submitted_at, te.reviewed_at, em.code, em.name\n    FROM team_entries te\n    JOIN event_master em ON em.id = te.event_master_id\n    WHERE te.institution_id = ? AND te.status = 'approved'\n    ORDER BY em.name, te.team_name");
+$stmt->bind_param('i', $institution_id);
+$stmt->execute();
+$team_entries = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
+
+$team_entry_ids = array_map(static fn(array $entry): int => (int) $entry['id'], $team_entries);
+$team_members = [];
+
+if ($team_entry_ids) {
+    $placeholders = implode(',', array_fill(0, count($team_entry_ids), '?'));
+    $types = str_repeat('i', count($team_entry_ids));
+
+    $stmt = $db->prepare(
+        "SELECT tem.team_entry_id, p.name, p.chest_number\n         FROM team_entry_members tem\n         JOIN participants p ON p.id = tem.participant_id\n         WHERE tem.team_entry_id IN ($placeholders)\n         ORDER BY p.name"
+    );
+    $stmt->bind_param($types, ...$team_entry_ids);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    while ($row = $result->fetch_assoc()) {
+        $team_members[(int) $row['team_entry_id']][] = $row;
+    }
+    $stmt->close();
+}
+
 $stmt = $db->prepare("SELECT em.code, em.name, em.fees, ier.status\n    FROM institution_event_registrations ier\n    JOIN event_master em ON em.id = ier.event_master_id\n    WHERE ier.institution_id = ? AND em.event_type = 'Institution'\n    ORDER BY em.name");
 $stmt->bind_param('i', $institution_id);
 $stmt->execute();
@@ -224,6 +249,52 @@ unset($institution_event);
         <?php else: ?>
             <tr>
                 <td colspan="5" style="text-align:center; padding:24px; color:#6c757d;">No institution-level event registrations found.</td>
+            </tr>
+        <?php endif; ?>
+        </tbody>
+    </table>
+
+    <h2 style="margin-top:0; margin-bottom:12px;">Approved Team Entries</h2>
+    <table style="margin-bottom:32px;">
+        <thead>
+            <tr>
+                <th>Sl. No</th>
+                <th>Event Code</th>
+                <th>Event Name</th>
+                <th>Team Name</th>
+                <th>Participants</th>
+            </tr>
+        </thead>
+        <tbody>
+        <?php if ($team_entries): ?>
+            <?php foreach ($team_entries as $index => $team_entry): ?>
+                <?php $members = $team_members[$team_entry['id']] ?? []; ?>
+                <tr>
+                    <td><?php echo $index + 1; ?></td>
+                    <td><?php echo sanitize($team_entry['code']); ?></td>
+                    <td><?php echo sanitize($team_entry['name']); ?></td>
+                    <td><?php echo sanitize($team_entry['team_name']); ?></td>
+                    <td>
+                        <?php if ($members): ?>
+                            <ul style="margin:0; padding-left:16px;">
+                                <?php foreach ($members as $member): ?>
+                                    <li>
+                                        <?php echo sanitize($member['name']); ?>
+                                        <?php if (!empty($member['chest_number'])): ?>
+                                            <span style="color:#6c757d;">(Chest <?php echo sanitize((string) $member['chest_number']); ?>)</span>
+                                        <?php endif; ?>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
+                        <?php else: ?>
+                            <span style="color:#6c757d;">No participants listed.</span>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+        <?php else: ?>
+            <tr>
+                <td colspan="5" style="text-align:center; padding:24px; color:#6c757d;">No team entries have been approved.</td>
             </tr>
         <?php endif; ?>
         </tbody>
