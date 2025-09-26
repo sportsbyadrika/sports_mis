@@ -47,6 +47,18 @@ switch ($user['role']) {
             'count' => fetch_count($db, 'SELECT COUNT(*) FROM participants'),
             'link' => 'events.php',
         ];
+        $cards[] = [
+            'label' => 'Institution Event Registrations',
+            'icon' => 'bi-building-check',
+            'count' => fetch_count($db, 'SELECT COUNT(*) FROM institution_event_registrations'),
+            'link' => 'events.php',
+        ];
+        $cards[] = [
+            'label' => 'Pending Institution Approvals',
+            'icon' => 'bi-hourglass-split',
+            'count' => fetch_count($db, "SELECT COUNT(*) FROM institution_event_registrations WHERE status = 'pending'"),
+            'link' => 'institutions.php',
+        ];
         break;
     case 'event_admin':
         if (!$user['event_id']) {
@@ -78,6 +90,18 @@ switch ($user['role']) {
             'icon' => 'bi-person-gear',
             'count' => fetch_count($db, "SELECT COUNT(*) FROM users WHERE role = 'event_staff' AND event_id = ?", 'i', [$event_id]),
             'link' => 'event_staff.php',
+        ];
+        $cards[] = [
+            'label' => 'Institution Event Registrations',
+            'icon' => 'bi-building-check',
+            'count' => fetch_count($db, 'SELECT COUNT(*) FROM institution_event_registrations ier JOIN event_master em ON em.id = ier.event_master_id WHERE em.event_id = ?', 'i', [$event_id]),
+            'link' => 'institutions.php',
+        ];
+        $cards[] = [
+            'label' => 'Pending Institution Approvals',
+            'icon' => 'bi-hourglass-split',
+            'count' => fetch_count($db, "SELECT COUNT(*) FROM institution_event_registrations ier JOIN event_master em ON em.id = ier.event_master_id WHERE em.event_id = ? AND ier.status = 'pending'", 'i', [$event_id]),
+            'link' => 'institutions.php',
         ];
         $cards[] = [
             'label' => 'Participants',

@@ -103,7 +103,12 @@ if (!$edit_institution && ($edit_id = (int) get_param('edit', 0))) {
     $stmt->close();
 }
 
-$sql = "SELECT i.*, e.name AS event_name, (SELECT COUNT(*) FROM participants p WHERE p.institution_id = i.id) AS participant_count\n        FROM institutions i\n        LEFT JOIN events e ON e.id = i.event_id";
+$sql = "SELECT i.*, e.name AS event_name,
+        (SELECT COUNT(*) FROM participants p WHERE p.institution_id = i.id) AS participant_count,
+        (SELECT COUNT(*) FROM institution_event_registrations ier WHERE ier.institution_id = i.id) AS institution_registration_count,
+        (SELECT COUNT(*) FROM institution_event_registrations ier WHERE ier.institution_id = i.id AND ier.status = 'pending') AS pending_registration_count
+        FROM institutions i
+        LEFT JOIN events e ON e.id = i.event_id";
 $conditions = [];
 $params = [];
 $types = '';
@@ -142,17 +147,24 @@ $flash = get_flash('success');
         <h1 class="h4 mb-0">Participating Institutions</h1>
         <p class="text-muted mb-0">Manage institutions participating in the event.</p>
     </div>
-    <?php if ($user['role'] === 'super_admin'): ?>
-        <form method="get" class="d-flex align-items-center gap-2">
-            <select name="event_id" class="form-select">
-                <option value="">All Events</option>
-                <?php foreach ($all_events as $event): ?>
-                    <option value="<?php echo (int) $event['id']; ?>" <?php echo ($event_id && $event_id == $event['id']) ? 'selected' : ''; ?>><?php echo sanitize($event['name']); ?></option>
-                <?php endforeach; ?>
-            </select>
-            <button class="btn btn-outline-primary">Filter</button>
-        </form>
-    <?php endif; ?>
+    <div class="d-flex align-items-center gap-2">
+        <?php if ($user['role'] === 'super_admin'): ?>
+            <form method="get" class="d-flex align-items-center gap-2">
+                <select name="event_id" class="form-select">
+                    <option value="">All Events</option>
+                    <?php foreach ($all_events as $event): ?>
+                        <option value="<?php echo (int) $event['id']; ?>" <?php echo ($event_id && $event_id == $event['id']) ? 'selected' : ''; ?>><?php echo sanitize($event['name']); ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <button class="btn btn-outline-primary" type="submit">Filter</button>
+            </form>
+            <?php if ($event_id): ?>
+                <a href="institution_event_registrations_export.php?event_id=<?php echo (int) $event_id; ?>" class="btn btn-outline-secondary">Export Institution Events</a>
+            <?php endif; ?>
+        <?php elseif ($user['role'] === 'event_admin'): ?>
+            <a href="institution_event_registrations_export.php" class="btn btn-outline-secondary">Export Institution Events</a>
+        <?php endif; ?>
+    </div>
 </div>
 <?php if ($flash): ?>
     <div class="alert alert-success"><?php echo sanitize($flash); ?></div>
@@ -245,6 +257,7 @@ $flash = get_flash('success');
 
                                 <th>Address</th>
                                 <th>Participants</th>
+                                <th>Institution Events</th>
                                 <?php if ($user['role'] === 'super_admin'): ?><th>Event</th><?php endif; ?>
                                 <th class="text-end">Actions</th>
                             </tr>
@@ -263,9 +276,16 @@ $flash = get_flash('success');
 
                                 <td><?php echo sanitize($institution['address']); ?></td>
                                 <td><?php echo (int) $institution['participant_count']; ?></td>
+                                <td>
+                                    <div class="fw-semibold"><?php echo (int) $institution['institution_registration_count']; ?></div>
+                                    <div class="text-muted small">Pending: <?php echo (int) $institution['pending_registration_count']; ?></div>
+                                </td>
                                 <?php if ($user['role'] === 'super_admin'): ?><td><?php echo sanitize($institution['event_name']); ?></td><?php endif; ?>
                                 <td class="text-end">
                                     <div class="table-actions justify-content-end">
+                                        <?php if (in_array($user['role'], ['event_admin', 'super_admin'], true)): ?>
+                                            <a href="institution_event_registrations.php?institution_id=<?php echo (int) $institution['id']; ?>" class="btn btn-sm btn-outline-secondary">Institution Events</a>
+                                        <?php endif; ?>
                                         <a href="participants.php?institution_id=<?php echo (int) $institution['id']; ?>" class="btn btn-sm btn-outline-secondary">Participants</a>
                                         <?php if ($can_manage): ?>
                                             <a href="institutions.php?edit=<?php echo (int) $institution['id']; ?><?php echo ($user['role'] === 'super_admin' && $event_id) ? '&event_id=' . $event_id : ''; ?>" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
@@ -285,7 +305,7 @@ $flash = get_flash('success');
                         <?php if (!$institutions): ?>
                             <tr>
 
-                                <td colspan="<?php echo $user['role'] === 'super_admin' ? '8' : '7'; ?>" class="text-center py-4 text-muted">No institutions found.</td>
+                                <td colspan="<?php echo $user['role'] === 'super_admin' ? '9' : '8'; ?>" class="text-center py-4 text-muted">No institutions found.</td>
 
                             </tr>
                         <?php endif; ?>

@@ -65,7 +65,9 @@ if (!$edit_event && ($edit_id = (int) get_param('edit', 0))) {
 $params = [];
 $sql = 'SELECT e.*, 
         (SELECT COUNT(*) FROM institutions i WHERE i.event_id = e.id) AS institution_count,
-        (SELECT COUNT(*) FROM participants p WHERE p.event_id = e.id) AS participant_count
+        (SELECT COUNT(*) FROM participants p WHERE p.event_id = e.id) AS participant_count,
+        (SELECT COUNT(*) FROM institution_event_registrations ier JOIN event_master em2 ON em2.id = ier.event_master_id WHERE em2.event_id = e.id) AS institution_event_registration_count,
+        (SELECT COUNT(*) FROM institution_event_registrations ier JOIN event_master em2 ON em2.id = ier.event_master_id WHERE em2.event_id = e.id AND ier.status = \'pending\') AS pending_institution_registration_count
         FROM events e';
 if ($search) {
     $sql .= ' WHERE e.name LIKE ? OR e.location LIKE ?';
@@ -155,6 +157,7 @@ $flash = get_flash('success');
                                 <th>Dates</th>
                                 <th>Institutions</th>
                                 <th>Participants</th>
+                                <th>Institution Events</th>
                                 <th class="text-end">Actions</th>
                             </tr>
                         </thead>
@@ -174,6 +177,10 @@ $flash = get_flash('success');
                                 </td>
                                 <td><?php echo (int) $event['institution_count']; ?></td>
                                 <td><?php echo (int) $event['participant_count']; ?></td>
+                                <td>
+                                    <div class="fw-semibold"><?php echo (int) $event['institution_event_registration_count']; ?></div>
+                                    <div class="text-muted small">Pending: <?php echo (int) $event['pending_institution_registration_count']; ?></div>
+                                </td>
                                 <td class="text-end">
                                     <div class="table-actions justify-content-end">
                                         <a href="events.php?edit=<?php echo (int) $event['id']; ?>" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
@@ -188,7 +195,7 @@ $flash = get_flash('success');
                         <?php endforeach; ?>
                         <?php if (!$events): ?>
                             <tr>
-                                <td colspan="6" class="text-center py-4 text-muted">No events found.</td>
+                                <td colspan="7" class="text-center py-4 text-muted">No events found.</td>
                             </tr>
                         <?php endif; ?>
                         </tbody>
