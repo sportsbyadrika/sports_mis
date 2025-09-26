@@ -42,6 +42,12 @@ $stmt->execute();
 $participants = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
 
+$stmt = $db->prepare("SELECT em.code, em.name, em.fees, ier.status\n    FROM institution_event_registrations ier\n    JOIN event_master em ON em.id = ier.event_master_id\n    WHERE ier.institution_id = ? AND em.event_type = 'Institution'\n    ORDER BY em.name");
+$stmt->bind_param('i', $institution_id);
+$stmt->execute();
+$institution_events = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
+
 $stmt = $db->prepare('SELECT transfer_date, mode, amount, transaction_number, status, reviewed_at FROM fund_transfers WHERE institution_id = ? ORDER BY transfer_date DESC, created_at DESC');
 $stmt->bind_param('i', $institution_id);
 $stmt->execute();
@@ -52,6 +58,7 @@ $age_categories = fetch_age_categories($db);
 $report_date = date('d M Y H:i');
 $total_events_sum = 0;
 $total_fees_sum = 0.0;
+$institution_events_total_fees = 0.0;
 
 foreach ($participants as &$participant) {
     $participant['age'] = calculate_age($participant['date_of_birth']);
@@ -62,6 +69,12 @@ foreach ($participants as &$participant) {
     $total_fees_sum += $participant['total_fees'];
 }
 unset($participant);
+
+foreach ($institution_events as &$institution_event) {
+    $institution_event['fees'] = (float) ($institution_event['fees'] ?? 0);
+    $institution_events_total_fees += $institution_event['fees'];
+}
+unset($institution_event);
 
 ?>
 <!DOCTYPE html>
@@ -181,6 +194,41 @@ unset($participant);
         <h2><?php echo sanitize($context['name']); ?></h2>
     </div>
     <div class="meta">Report generated on: <?php echo sanitize($report_date); ?></div>
+
+    <h2 style="margin-top:0; margin-bottom:12px;">Institution Event Registrations</h2>
+    <table style="margin-bottom:32px;">
+        <thead>
+            <tr>
+                <th>Sl. No</th>
+                <th>Event Code</th>
+                <th>Event Name</th>
+                <th>Status</th>
+                <th>Fees (₹)</th>
+            </tr>
+        </thead>
+        <tbody>
+        <?php if ($institution_events): ?>
+            <?php foreach ($institution_events as $index => $institution_event): ?>
+                <tr>
+                    <td><?php echo $index + 1; ?></td>
+                    <td><?php echo sanitize($institution_event['code']); ?></td>
+                    <td><?php echo sanitize($institution_event['name']); ?></td>
+                    <td style="text-transform:uppercase; text-align:center;"><strong><?php echo sanitize($institution_event['status']); ?></strong></td>
+                    <td style="text-align:right;">₹<?php echo number_format($institution_event['fees'], 2); ?></td>
+                </tr>
+            <?php endforeach; ?>
+            <tr class="totals-row">
+                <td colspan="4" style="text-align:right;">Total Institution Event Fees</td>
+                <td style="text-align:right;">₹<?php echo number_format($institution_events_total_fees, 2); ?></td>
+            </tr>
+        <?php else: ?>
+            <tr>
+                <td colspan="5" style="text-align:center; padding:24px; color:#6c757d;">No institution-level event registrations found.</td>
+            </tr>
+        <?php endif; ?>
+        </tbody>
+    </table>
+
     <table>
         <thead>
             <tr>
