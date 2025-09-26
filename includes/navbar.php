@@ -26,6 +26,7 @@
                 <?php endif; ?>
                 <?php if ($user['role'] === 'institution_admin'): ?>
                     <li class="nav-item"><a class="nav-link" href="participants.php">Participants</a></li>
+                    <li class="nav-item"><a class="nav-link" href="institution_event_registrations.php">Institution Events</a></li>
                     <li class="nav-item"><a class="nav-link" href="institution_fund_transfers.php">Fund Transfers</a></li>
                 <?php endif; ?>
                 <?php if ($user['role'] === 'event_staff'): ?>
