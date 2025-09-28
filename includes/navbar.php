@@ -57,4 +57,13 @@
         </div>
     </div>
 </nav>
+<?php else: ?>
+<nav class="navbar navbar-expand-lg navbar-light navbar-app shadow-sm">
+    <div class="container">
+        <a class="navbar-brand d-flex align-items-center gap-2" href="index.php">
+            <img src="assets/images/logo.svg" alt="SportsbyA Tech logo" class="navbar-brand-logo" height="40" width="40">
+            <span><?php echo APP_NAME; ?></span>
+        </a>
+    </div>
+</nav>
 <?php endif; ?>

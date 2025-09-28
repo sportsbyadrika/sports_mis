@@ -144,6 +144,11 @@ switch ($user['role']) {
             return;
         }
         $institution_id = (int) $user['institution_id'];
+        $stmt = $db->prepare('SELECT name, event_id FROM institutions WHERE id = ?');
+        $stmt->bind_param('i', $institution_id);
+        $stmt->execute();
+        $institution = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
         $cards[] = [
             'label' => 'Total Participants',
             'icon' => 'bi-people',
@@ -180,11 +185,16 @@ switch ($user['role']) {
             'count' => fetch_count($db, "SELECT COUNT(*) FROM institution_event_registrations WHERE institution_id = ? AND status = 'approved'", 'i', [$institution_id]),
             'link' => 'institution_event_registrations.php',
         ];
+        $institution_events_count = fetch_count($db, 'SELECT COUNT(DISTINCT em.event_id) FROM institution_event_registrations ier JOIN event_master em ON em.id = ier.event_master_id WHERE ier.institution_id = ?', 'i', [$institution_id]);
+        if ($institution_events_count === 0 && !empty($institution['event_id'])) {
+            $institution_events_count = 1;
+        }
         $participant_fees = fetch_sum($db, "SELECT COALESCE(SUM(pe.fees), 0) FROM participant_events pe JOIN participants p ON p.id = pe.participant_id WHERE p.institution_id = ? AND p.status IN ('submitted', 'approved')", 'i', [$institution_id]);
         $team_entry_fees = fetch_sum($db, "SELECT COALESCE(SUM(em.fees), 0) FROM team_entries te JOIN event_master em ON em.id = te.event_master_id WHERE te.institution_id = ? AND te.status IN ('pending', 'approved')", 'i', [$institution_id]);
         $institution_event_fees = fetch_sum($db, "SELECT COALESCE(SUM(em.fees), 0) FROM institution_event_registrations ier JOIN event_master em ON em.id = ier.event_master_id WHERE ier.institution_id = ? AND ier.status IN ('pending', 'approved')", 'i', [$institution_id]);
         $total_due = $participant_fees + $team_entry_fees + $institution_event_fees;
         $fee_paid = fetch_sum($db, "SELECT COALESCE(SUM(amount), 0) FROM fund_transfers WHERE institution_id = ? AND status = 'approved'", 'i', [$institution_id]);
+        $fund_pending = fetch_sum($db, "SELECT COALESCE(SUM(amount), 0) FROM fund_transfers WHERE institution_id = ? AND status = 'pending'", 'i', [$institution_id]);
         $balance = max($total_due - $fee_paid, 0.0);
 
         $fee_summary = [
@@ -195,12 +205,18 @@ switch ($user['role']) {
             'fee_paid' => $fee_paid,
             'balance' => $balance,
         ];
+        $event_financial_summary = [
+            'events_count' => $institution_events_count,
+            'participant_fees' => $participant_fees,
+            'team_entry_fees' => $team_entry_fees,
+            'institution_event_fees' => $institution_event_fees,
+            'total_due' => $total_due,
+            'fund_pending' => $fund_pending,
+            'fund_approved' => $fee_paid,
+            'fund_total' => $fund_pending + $fee_paid,
+            'balance' => $balance,
+        ];
         echo '<div class="mb-4">';
-        $stmt = $db->prepare('SELECT name, event_id FROM institutions WHERE id = ?');
-        $stmt->bind_param('i', $institution_id);
-        $stmt->execute();
-        $institution = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
         echo '<h1 class="h3">' . sanitize($institution['name'] ?? 'Institution Dashboard') . '</h1>';
         echo '</div>';
         if (!empty($institution['event_id'])) {
@@ -252,6 +268,7 @@ switch ($user['role']) {
         $fund_approved = fetch_sum($db, "SELECT COALESCE(SUM(amount), 0) FROM fund_transfers WHERE event_id = ? AND status = 'approved'", 'i', [$event_id]);
         $balance = max($total_due - $fund_approved, 0.0);
         $event_financial_summary = [
+            'events_count' => fetch_count($db, 'SELECT COUNT(*) FROM events WHERE id = ?', 'i', [$event_id]),
             'participant_fees' => $participant_fees,
             'team_entry_fees' => $team_entry_fees,
             'institution_event_fees' => $institution_event_fees,
@@ -366,7 +383,12 @@ switch ($user['role']) {
     <div class="card shadow-sm mt-4">
         <div class="card-header bg-white d-flex justify-content-between align-items-center">
             <h2 class="h6 mb-0">Event Financial Snapshot</h2>
-            <span class="badge bg-primary">Finance</span>
+            <div class="d-flex align-items-center gap-2">
+                <?php if (isset($event_financial_summary['events_count'])): ?>
+                    <span class="badge bg-success-subtle text-success-emphasis">Events: <?php echo (int) $event_financial_summary['events_count']; ?></span>
+                <?php endif; ?>
+                <span class="badge bg-primary">Finance</span>
+            </div>
         </div>
         <div class="card-body">
             <div class="row g-4 align-items-stretch">
