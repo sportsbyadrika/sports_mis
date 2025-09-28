@@ -7,6 +7,10 @@ CREATE TABLE events (
     location VARCHAR(150),
     start_date DATE,
     end_date DATE,
+    bank_account_number VARCHAR(60),
+    bank_ifsc VARCHAR(20),
+    bank_name VARCHAR(150),
+    payment_qr_path VARCHAR(255),
     created_by INT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
