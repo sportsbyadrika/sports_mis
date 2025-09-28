@@ -343,14 +343,6 @@ switch ($user['role']) {
             <div class="row g-4 align-items-stretch">
                 <div class="col-lg-7">
                     <div class="text-muted text-uppercase small mb-2">Registrations Overview</div>
-                    <?php if (isset($fee_summary['event_master_count'])): ?>
-                        <div class="border rounded p-3 mb-3 bg-light">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span class="fw-semibold text-uppercase small">Event Masters Registered</span>
-                                <span class="fs-5 fw-bold"><?php echo number_format((int) $fee_summary['event_master_count']); ?></span>
-                            </div>
-                        </div>
-                    <?php endif; ?>
                     <?php
                         $fee_breakdown = [
                             [
