@@ -23,6 +23,7 @@
                     <li class="nav-item"><a class="nav-link" href="institutions.php">Participating Institutions</a></li>
                     <li class="nav-item"><a class="nav-link" href="institution_admins.php">Institution Admins</a></li>
                     <li class="nav-item"><a class="nav-link" href="event_staff.php">Event Staff</a></li>
+                    <li class="nav-item"><a class="nav-link" href="event_news.php">Event News</a></li>
                 <?php endif; ?>
                 <?php if ($user['role'] === 'institution_admin'): ?>
                     <li class="nav-item"><a class="nav-link" href="participants.php">Participants</a></li>

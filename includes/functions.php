@@ -122,3 +122,15 @@ function determine_age_category_label(?int $age, array $categories): ?string
 
     return null;
 }
+
+function fetch_event_news(mysqli $db, int $event_id, int $limit = 5): array
+{
+    $stmt = $db->prepare("SELECT id, title, content, url, created_at FROM event_news WHERE event_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT ?");
+    $stmt->bind_param('ii', $event_id, $limit);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $news = $result->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+
+    return $news;
+}

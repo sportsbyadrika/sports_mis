@@ -35,6 +35,8 @@ function fetch_sum(mysqli $db, string $query, string $types = '', array $params 
 
 $cards = [];
 $fee_summary = null;
+$event_financial_summary = null;
+$news_items = [];
 
 switch ($user['role']) {
     case 'super_admin':
@@ -194,13 +196,16 @@ switch ($user['role']) {
             'balance' => $balance,
         ];
         echo '<div class="mb-4">';
-        $stmt = $db->prepare('SELECT name FROM institutions WHERE id = ?');
+        $stmt = $db->prepare('SELECT name, event_id FROM institutions WHERE id = ?');
         $stmt->bind_param('i', $institution_id);
         $stmt->execute();
         $institution = $stmt->get_result()->fetch_assoc();
         $stmt->close();
         echo '<h1 class="h3">' . sanitize($institution['name'] ?? 'Institution Dashboard') . '</h1>';
         echo '</div>';
+        if (!empty($institution['event_id'])) {
+            $news_items = fetch_event_news($db, (int) $institution['event_id']);
+        }
         break;
     case 'event_staff':
         if (!$user['event_id']) {
@@ -221,6 +226,41 @@ switch ($user['role']) {
             'count' => fetch_count($db, 'SELECT COUNT(*) FROM institutions WHERE event_id = ?', 'i', [$event_id]),
             'link' => 'institutions.php',
         ];
+        $cards[] = [
+            'label' => 'Team Entries',
+            'icon' => 'bi-people',
+            'count' => fetch_count($db, 'SELECT COUNT(*) FROM team_entries te JOIN event_master em ON em.id = te.event_master_id WHERE em.event_id = ?', 'i', [$event_id]),
+            'link' => 'event_staff_team_entries.php',
+        ];
+        $cards[] = [
+            'label' => 'Pending Institution Events',
+            'icon' => 'bi-hourglass-split',
+            'count' => fetch_count($db, "SELECT COUNT(*) FROM institution_event_registrations ier JOIN event_master em ON em.id = ier.event_master_id WHERE em.event_id = ? AND ier.status = 'pending'", 'i', [$event_id]),
+            'link' => 'institution_event_registrations.php',
+        ];
+        $cards[] = [
+            'label' => 'Approved Institution Events',
+            'icon' => 'bi-check-circle',
+            'count' => fetch_count($db, "SELECT COUNT(*) FROM institution_event_registrations ier JOIN event_master em ON em.id = ier.event_master_id WHERE em.event_id = ? AND ier.status = 'approved'", 'i', [$event_id]),
+            'link' => 'institution_event_registrations.php',
+        ];
+        $participant_fees = fetch_sum($db, "SELECT COALESCE(SUM(pe.fees), 0) FROM participant_events pe JOIN participants p ON p.id = pe.participant_id WHERE p.event_id = ? AND p.status IN ('submitted', 'approved')", 'i', [$event_id]);
+        $team_entry_fees = fetch_sum($db, "SELECT COALESCE(SUM(em.fees), 0) FROM team_entries te JOIN event_master em ON em.id = te.event_master_id WHERE em.event_id = ? AND te.status IN ('pending', 'approved')", 'i', [$event_id]);
+        $institution_event_fees = fetch_sum($db, "SELECT COALESCE(SUM(em.fees), 0) FROM institution_event_registrations ier JOIN event_master em ON em.id = ier.event_master_id WHERE em.event_id = ? AND ier.status IN ('pending', 'approved')", 'i', [$event_id]);
+        $total_due = $participant_fees + $team_entry_fees + $institution_event_fees;
+        $fund_pending = fetch_sum($db, "SELECT COALESCE(SUM(amount), 0) FROM fund_transfers WHERE event_id = ? AND status = 'pending'", 'i', [$event_id]);
+        $fund_approved = fetch_sum($db, "SELECT COALESCE(SUM(amount), 0) FROM fund_transfers WHERE event_id = ? AND status = 'approved'", 'i', [$event_id]);
+        $balance = max($total_due - $fund_approved, 0.0);
+        $event_financial_summary = [
+            'participant_fees' => $participant_fees,
+            'team_entry_fees' => $team_entry_fees,
+            'institution_event_fees' => $institution_event_fees,
+            'total_due' => $total_due,
+            'fund_pending' => $fund_pending,
+            'fund_approved' => $fund_approved,
+            'fund_total' => $fund_pending + $fund_approved,
+            'balance' => $balance,
+        ];
         echo '<div class="mb-4">';
         $stmt = $db->prepare('SELECT name FROM events WHERE id = ?');
         $stmt->bind_param('i', $event_id);
@@ -229,6 +269,7 @@ switch ($user['role']) {
         $stmt->close();
         echo '<h1 class="h3">' . sanitize($event['name'] ?? 'Event Staff Dashboard') . '</h1>';
         echo '</div>';
+        $news_items = fetch_event_news($db, $event_id);
         break;
 }
 ?>
@@ -249,6 +290,30 @@ switch ($user['role']) {
         </div>
     <?php endforeach; ?>
 </div>
+<?php if ($news_items): ?>
+    <div class="card shadow-sm mt-4">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h2 class="h6 mb-0">Latest Event News</h2>
+            <span class="badge bg-info">Updates</span>
+        </div>
+        <div class="card-body">
+            <?php foreach ($news_items as $index => $news): ?>
+                <div class="<?php echo $index === array_key_last($news_items) ? '' : 'border-bottom pb-3 mb-3'; ?>">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h3 class="h6 mb-1"><?php echo sanitize($news['title']); ?></h3>
+                        </div>
+                        <span class="small text-muted"><?php echo date('d M Y', strtotime($news['created_at'])); ?></span>
+                    </div>
+                    <p class="mb-2 small"><?php echo nl2br(sanitize($news['content'])); ?></p>
+                    <?php if (!empty($news['url'])): ?>
+                        <a href="<?php echo sanitize($news['url']); ?>" class="small" target="_blank" rel="noopener">Read more</a>
+                    <?php endif; ?>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+<?php endif; ?>
 <?php if ($fee_summary): ?>
     <div class="card shadow-sm mt-4">
         <div class="card-header bg-white d-flex justify-content-between align-items-center">
@@ -290,6 +355,63 @@ switch ($user['role']) {
                             <div class="small text-success mt-3">All dues have been settled.</div>
                         <?php else: ?>
                             <div class="small text-muted mt-3">Submit approved fund transfers to clear the outstanding balance.</div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+<?php endif; ?>
+<?php if ($event_financial_summary): ?>
+    <div class="card shadow-sm mt-4">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h2 class="h6 mb-0">Event Financial Snapshot</h2>
+            <span class="badge bg-primary">Finance</span>
+        </div>
+        <div class="card-body">
+            <div class="row g-4 align-items-stretch">
+                <div class="col-lg-6">
+                    <div class="text-muted text-uppercase small mb-2">Fee Due Breakdown</div>
+                    <div class="d-flex justify-content-between py-2 border-bottom">
+                        <span>Participant Fees</span>
+                        <span class="fw-semibold">₹<?php echo number_format($event_financial_summary['participant_fees'], 2); ?></span>
+                    </div>
+                    <div class="d-flex justify-content-between py-2 border-bottom">
+                        <span>Team Entry Fees</span>
+                        <span class="fw-semibold">₹<?php echo number_format($event_financial_summary['team_entry_fees'], 2); ?></span>
+                    </div>
+                    <div class="d-flex justify-content-between py-2 border-bottom">
+                        <span>Institution Event Fees</span>
+                        <span class="fw-semibold">₹<?php echo number_format($event_financial_summary['institution_event_fees'], 2); ?></span>
+                    </div>
+                    <div class="d-flex justify-content-between pt-3">
+                        <span class="fw-semibold text-uppercase">Total Fee Due</span>
+                        <span class="fs-5 fw-bold">₹<?php echo number_format($event_financial_summary['total_due'], 2); ?></span>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="border rounded h-100 p-3 bg-light d-flex flex-column">
+                        <div class="text-muted text-uppercase small mb-2">Fund Receipts</div>
+                        <div class="d-flex justify-content-between py-2 border-bottom">
+                            <span>Pending Approval</span>
+                            <span class="fw-semibold">₹<?php echo number_format($event_financial_summary['fund_pending'], 2); ?></span>
+                        </div>
+                        <div class="d-flex justify-content-between py-2 border-bottom">
+                            <span>Approved</span>
+                            <span class="fw-semibold">₹<?php echo number_format($event_financial_summary['fund_approved'], 2); ?></span>
+                        </div>
+                        <div class="d-flex justify-content-between pt-3">
+                            <span class="fw-semibold">Total Received</span>
+                            <span class="fs-5 fw-bold">₹<?php echo number_format($event_financial_summary['fund_total'], 2); ?></span>
+                        </div>
+                        <div class="d-flex justify-content-between mt-3">
+                            <span class="fw-semibold text-uppercase">Balance</span>
+                            <span class="fs-4 fw-bold <?php echo $event_financial_summary['balance'] <= 0 ? 'text-success' : 'text-danger'; ?>">₹<?php echo number_format($event_financial_summary['balance'], 2); ?></span>
+                        </div>
+                        <?php if ($event_financial_summary['balance'] <= 0): ?>
+                            <div class="small text-success mt-2">All dues have been cleared for this event.</div>
+                        <?php else: ?>
+                            <div class="small text-muted mt-2">Additional approved fund transfers are required to settle the outstanding balance.</div>
                         <?php endif; ?>
                     </div>
                 </div>
