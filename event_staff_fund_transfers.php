@@ -17,6 +17,12 @@ $event_id = (int) $user['event_id'];
 $status_filter = (string) get_param('status', 'all');
 $institution_filter = (int) get_param('institution_id', 0);
 
+$payment_stmt = $db->prepare('SELECT bank_account_number, bank_ifsc, bank_name, payment_qr_path FROM events WHERE id = ? LIMIT 1');
+$payment_stmt->bind_param('i', $event_id);
+$payment_stmt->execute();
+$event_payment = $payment_stmt->get_result()->fetch_assoc();
+$payment_stmt->close();
+
 $statuses = [
     'all' => 'All Statuses',
     'pending' => 'Pending',
@@ -89,6 +95,48 @@ $status_classes = [
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
 <?php endif; ?>
+
+<?php
+$has_payment_details = $event_payment && (
+    !empty($event_payment['bank_account_number']) ||
+    !empty($event_payment['bank_ifsc']) ||
+    !empty($event_payment['bank_name']) ||
+    !empty($event_payment['payment_qr_path'])
+);
+?>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h2 class="h6 mb-0">Payment Account Details</h2>
+        <span class="badge bg-secondary">Visible to Institutions</span>
+    </div>
+    <div class="card-body">
+        <?php if ($has_payment_details): ?>
+            <div class="row g-4 align-items-center">
+                <div class="col-md-6">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-5">Bank Name</dt>
+                        <dd class="col-sm-7"><?php echo $event_payment['bank_name'] ? sanitize($event_payment['bank_name']) : '<span class="text-muted">Not provided</span>'; ?></dd>
+                        <dt class="col-sm-5">Account Number</dt>
+                        <dd class="col-sm-7"><?php echo $event_payment['bank_account_number'] ? sanitize($event_payment['bank_account_number']) : '<span class="text-muted">Not provided</span>'; ?></dd>
+                        <dt class="col-sm-5">IFSC</dt>
+                        <dd class="col-sm-7"><?php echo $event_payment['bank_ifsc'] ? sanitize($event_payment['bank_ifsc']) : '<span class="text-muted">Not provided</span>'; ?></dd>
+                    </dl>
+                </div>
+                <?php if (!empty($event_payment['payment_qr_path'])): ?>
+                    <div class="col-md-6 text-md-end">
+                        <div class="d-inline-block text-center">
+                            <img src="<?php echo sanitize($event_payment['payment_qr_path']); ?>" alt="Payment QR code" class="img-fluid rounded" style="max-width: 220px;">
+                            <div class="small text-muted mt-2">Share this QR with institutions for quicker payments.</div>
+                        </div>
+                    </div>
+                <?php endif; ?>
+            </div>
+        <?php else: ?>
+            <p class="mb-0 text-muted">Configure bank details and upload a payment QR code from the Event Settings page so institutions can remit funds easily.</p>
+        <?php endif; ?>
+    </div>
+</div>
 
 <div class="card shadow-sm mb-4">
     <div class="card-body">

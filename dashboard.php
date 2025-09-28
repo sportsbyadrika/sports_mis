@@ -19,7 +19,22 @@ function fetch_count(mysqli $db, string $query, string $types = '', array $param
     return (int) $count;
 }
 
+function fetch_sum(mysqli $db, string $query, string $types = '', array $params = []): float
+{
+    $stmt = $db->prepare($query);
+    if ($types) {
+        $stmt->bind_param($types, ...$params);
+    }
+    $stmt->execute();
+    $stmt->bind_result($sum);
+    $stmt->fetch();
+    $stmt->close();
+
+    return $sum !== null ? (float) $sum : 0.0;
+}
+
 $cards = [];
+$fee_summary = null;
 
 switch ($user['role']) {
     case 'super_admin':
@@ -134,16 +149,49 @@ switch ($user['role']) {
             'link' => 'participants.php',
         ];
         $cards[] = [
-            'label' => 'Submitted Participants',
-            'icon' => 'bi-check-circle',
-            'count' => fetch_count($db, "SELECT COUNT(*) FROM participants WHERE institution_id = ? AND status = 'submitted'", 'i', [$institution_id]),
-            'link' => 'participants.php?status=submitted',
+            'label' => 'Approved Participants',
+            'icon' => 'bi-person-check',
+            'count' => fetch_count($db, "SELECT COUNT(*) FROM participants WHERE institution_id = ? AND status = 'approved'", 'i', [$institution_id]),
+            'link' => 'participants.php',
         ];
         $cards[] = [
-            'label' => 'Draft Participants',
-            'icon' => 'bi-pencil-square',
-            'count' => fetch_count($db, "SELECT COUNT(*) FROM participants WHERE institution_id = ? AND status = 'draft'", 'i', [$institution_id]),
-            'link' => 'participants.php?status=draft',
+            'label' => 'Pending Team Entries',
+            'icon' => 'bi-hourglass-split',
+            'count' => fetch_count($db, "SELECT COUNT(*) FROM team_entries WHERE institution_id = ? AND status = 'pending'", 'i', [$institution_id]),
+            'link' => 'institution_team_entries.php',
+        ];
+        $cards[] = [
+            'label' => 'Approved Team Entries',
+            'icon' => 'bi-clipboard-check',
+            'count' => fetch_count($db, "SELECT COUNT(*) FROM team_entries WHERE institution_id = ? AND status = 'approved'", 'i', [$institution_id]),
+            'link' => 'institution_team_entries.php',
+        ];
+        $cards[] = [
+            'label' => 'Pending Institution Events',
+            'icon' => 'bi-hourglass',
+            'count' => fetch_count($db, "SELECT COUNT(*) FROM institution_event_registrations WHERE institution_id = ? AND status = 'pending'", 'i', [$institution_id]),
+            'link' => 'institution_event_registrations.php',
+        ];
+        $cards[] = [
+            'label' => 'Approved Institution Events',
+            'icon' => 'bi-check2-circle',
+            'count' => fetch_count($db, "SELECT COUNT(*) FROM institution_event_registrations WHERE institution_id = ? AND status = 'approved'", 'i', [$institution_id]),
+            'link' => 'institution_event_registrations.php',
+        ];
+        $participant_fees = fetch_sum($db, "SELECT COALESCE(SUM(pe.fees), 0) FROM participant_events pe JOIN participants p ON p.id = pe.participant_id WHERE p.institution_id = ? AND p.status IN ('submitted', 'approved')", 'i', [$institution_id]);
+        $team_entry_fees = fetch_sum($db, "SELECT COALESCE(SUM(em.fees), 0) FROM team_entries te JOIN event_master em ON em.id = te.event_master_id WHERE te.institution_id = ? AND te.status IN ('pending', 'approved')", 'i', [$institution_id]);
+        $institution_event_fees = fetch_sum($db, "SELECT COALESCE(SUM(em.fees), 0) FROM institution_event_registrations ier JOIN event_master em ON em.id = ier.event_master_id WHERE ier.institution_id = ? AND ier.status IN ('pending', 'approved')", 'i', [$institution_id]);
+        $total_due = $participant_fees + $team_entry_fees + $institution_event_fees;
+        $fee_paid = fetch_sum($db, "SELECT COALESCE(SUM(amount), 0) FROM fund_transfers WHERE institution_id = ? AND status = 'approved'", 'i', [$institution_id]);
+        $balance = max($total_due - $fee_paid, 0.0);
+
+        $fee_summary = [
+            'participant_fees' => $participant_fees,
+            'team_entry_fees' => $team_entry_fees,
+            'institution_event_fees' => $institution_event_fees,
+            'total_due' => $total_due,
+            'fee_paid' => $fee_paid,
+            'balance' => $balance,
         ];
         echo '<div class="mb-4">';
         $stmt = $db->prepare('SELECT name FROM institutions WHERE id = ?');
@@ -201,4 +249,52 @@ switch ($user['role']) {
         </div>
     <?php endforeach; ?>
 </div>
+<?php if ($fee_summary): ?>
+    <div class="card shadow-sm mt-4">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h2 class="h6 mb-0">Fee Summary</h2>
+            <span class="badge bg-primary">Financial Overview</span>
+        </div>
+        <div class="card-body">
+            <div class="row g-4 align-items-stretch">
+                <div class="col-lg-7">
+                    <div class="text-muted text-uppercase small mb-2">Fee Due Breakdown</div>
+                    <div class="d-flex justify-content-between py-2 border-bottom">
+                        <span>Participant Fees</span>
+                        <span class="fw-semibold">₹<?php echo number_format($fee_summary['participant_fees'], 2); ?></span>
+                    </div>
+                    <div class="d-flex justify-content-between py-2 border-bottom">
+                        <span>Team Entry Fees</span>
+                        <span class="fw-semibold">₹<?php echo number_format($fee_summary['team_entry_fees'], 2); ?></span>
+                    </div>
+                    <div class="d-flex justify-content-between py-2 border-bottom">
+                        <span>Institution Event Fees</span>
+                        <span class="fw-semibold">₹<?php echo number_format($fee_summary['institution_event_fees'], 2); ?></span>
+                    </div>
+                    <div class="d-flex justify-content-between pt-3">
+                        <span class="fw-semibold text-uppercase">Total Fee Due</span>
+                        <span class="fs-5 fw-bold">₹<?php echo number_format($fee_summary['total_due'], 2); ?></span>
+                    </div>
+                </div>
+                <div class="col-lg-5">
+                    <div class="border rounded h-100 p-3 bg-light d-flex flex-column justify-content-center">
+                        <div class="d-flex justify-content-between mb-3">
+                            <span class="fw-semibold">Fee Paid</span>
+                            <span class="fs-5">₹<?php echo number_format($fee_summary['fee_paid'], 2); ?></span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="fw-semibold text-uppercase">Balance</span>
+                            <span class="fs-4 fw-bold text-danger">₹<?php echo number_format($fee_summary['balance'], 2); ?></span>
+                        </div>
+                        <?php if ($fee_summary['balance'] <= 0): ?>
+                            <div class="small text-success mt-3">All dues have been settled.</div>
+                        <?php else: ?>
+                            <div class="small text-muted mt-3">Submit approved fund transfers to clear the outstanding balance.</div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+<?php endif; ?>
 <?php include __DIR__ . '/includes/footer.php'; ?>

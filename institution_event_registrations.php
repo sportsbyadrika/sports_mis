@@ -3,7 +3,7 @@ $page_title = 'Institution Event Registrations';
 require_once __DIR__ . '/includes/header.php';
 
 require_login();
-require_role(['institution_admin', 'event_admin', 'super_admin']);
+require_role(['institution_admin', 'event_admin', 'event_staff', 'super_admin']);
 
 $user = current_user();
 $db = get_db_connection();
@@ -36,7 +36,7 @@ if ($role === 'institution_admin') {
     }
 
     $event_id = (int) $institution_context['event_id'];
-} elseif ($role === 'event_admin') {
+} elseif (in_array($role, ['event_admin', 'event_staff'], true)) {
     if (!$user['event_id']) {
         echo '<div class="alert alert-warning">No event assigned to your account. Please contact the super administrator.</div>';
         include __DIR__ . '/includes/footer.php';
@@ -82,7 +82,7 @@ $redirect_url = 'institution_event_registrations.php' . ($redirect_params ? '?' 
 
 $institution_options = [];
 
-if ($role === 'event_admin') {
+if (in_array($role, ['event_admin', 'event_staff'], true)) {
     $stmt = $db->prepare('SELECT id, name FROM institutions WHERE event_id = ? ORDER BY name');
     $stmt->bind_param('i', $event_id);
     $stmt->execute();
@@ -96,7 +96,7 @@ if ($role === 'event_admin') {
     }
 }
 
-if (($role === 'event_admin' || $role === 'super_admin') && !$institution_context) {
+if ((in_array($role, ['event_admin', 'event_staff'], true) || $role === 'super_admin') && !$institution_context) {
     echo '<div class="mb-4">';
     echo '<h1 class="h4 mb-2">Institution Event Registrations</h1>';
     echo '<p class="text-muted mb-3">Select an institution to review and manage its event registrations.</p>';
@@ -195,7 +195,7 @@ if (is_post()) {
         }
         redirect($redirect_url);
     } elseif ($action === 'update_status') {
-        if (!in_array($role, ['event_admin', 'super_admin'], true)) {
+        if (!in_array($role, ['event_staff', 'super_admin'], true)) {
             set_flash('error', 'You do not have permission to update approval status.');
             redirect($redirect_url);
         }
@@ -321,7 +321,7 @@ $error_message = get_flash('error');
         <div class="card shadow-sm">
             <div class="card-header bg-white d-flex justify-content-between align-items-center">
                 <h2 class="h6 mb-0">Registered Institution Events</h2>
-                <?php if (in_array($role, ['event_admin', 'super_admin'], true)): ?>
+                <?php if (in_array($role, ['event_staff', 'super_admin'], true)): ?>
                     <span class="badge bg-secondary">Approver Mode</span>
                 <?php endif; ?>
             </div>
@@ -384,7 +384,7 @@ $error_message = get_flash('error');
                                                 <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
                                             </form>
                                         <?php endif; ?>
-                                        <?php if (in_array($role, ['event_admin', 'super_admin'], true)): ?>
+                                        <?php if (in_array($role, ['event_staff', 'super_admin'], true)): ?>
                                             <form method="post" class="d-flex align-items-center gap-2">
                                                 <input type="hidden" name="action" value="update_status">
                                                 <input type="hidden" name="id" value="<?php echo (int) $registration['id']; ?>">
