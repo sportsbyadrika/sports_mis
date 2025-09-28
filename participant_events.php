@@ -112,7 +112,7 @@ if (is_post()) {
             set_flash('error', 'Select an event to add.');
             redirect('participant_events.php?participant_id=' . $participant_id);
         }
-        $stmt = $db->prepare('SELECT em.*, ac.min_age, ac.max_age FROM event_master em JOIN age_categories ac ON ac.id = em.age_category_id WHERE em.id = ? AND em.event_id = ?');
+        $stmt = $db->prepare("SELECT em.*, ac.min_age, ac.max_age\n            FROM event_master em\n            JOIN age_categories ac ON ac.id = em.age_category_id\n            WHERE em.id = ? AND em.event_id = ? AND em.event_type = 'Individual'");
         $stmt->bind_param('ii', $event_master_id, $participant['event_id']);
         $stmt->execute();
         $event_entry = $stmt->get_result()->fetch_assoc();
@@ -169,7 +169,7 @@ if (is_post()) {
     }
 }
 
-$stmt = $db->prepare('SELECT pe.id, pe.event_master_id, em.name, em.code, em.event_type, em.fees, em.label, ac.name AS age_category_name FROM participant_events pe JOIN event_master em ON em.id = pe.event_master_id JOIN age_categories ac ON ac.id = em.age_category_id WHERE pe.participant_id = ? ORDER BY em.name');
+$stmt = $db->prepare("SELECT pe.id, pe.event_master_id, em.name, em.code, em.event_type, em.fees, em.label, ac.name AS age_category_name\n    FROM participant_events pe\n    JOIN event_master em ON em.id = pe.event_master_id\n    JOIN age_categories ac ON ac.id = em.age_category_id\n    WHERE pe.participant_id = ? AND em.event_type = 'Individual'\n    ORDER BY em.name");
 $stmt->bind_param('i', $participant_id);
 $stmt->execute();
 $assigned_events = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
@@ -177,7 +177,7 @@ $stmt->close();
 
 $assigned_ids = array_map(static fn($row) => (int) $row['event_master_id'], $assigned_events);
 
-$stmt = $db->prepare('SELECT em.id, em.name, em.code, em.gender, em.event_type, em.fees, em.label, ac.name AS age_category_name, ac.min_age, ac.max_age FROM event_master em JOIN age_categories ac ON ac.id = em.age_category_id WHERE em.event_id = ? ORDER BY em.name');
+$stmt = $db->prepare("SELECT em.id, em.name, em.code, em.gender, em.event_type, em.fees, em.label, ac.name AS age_category_name, ac.min_age, ac.max_age\n    FROM event_master em\n    JOIN age_categories ac ON ac.id = em.age_category_id\n    WHERE em.event_id = ? AND em.event_type = 'Individual'\n    ORDER BY em.name");
 $stmt->bind_param('i', $participant['event_id']);
 $stmt->execute();
 $all_events = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);

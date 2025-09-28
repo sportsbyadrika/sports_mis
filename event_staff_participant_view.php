@@ -27,8 +27,14 @@ function fetch_participant(mysqli $db, int $participant_id, int $event_id): ?arr
 {
     $sql = "SELECT p.name, p.gender, p.contact_number, p.status, p.chest_number,
                    i.name AS institution_name,
-                   (SELECT COUNT(*) FROM participant_events pe WHERE pe.participant_id = p.id) AS event_count,
-                   (SELECT COALESCE(SUM(pe2.fees), 0) FROM participant_events pe2 WHERE pe2.participant_id = p.id) AS total_fees
+                   (SELECT COUNT(*)
+                    FROM participant_events pe
+                    JOIN event_master em1 ON em1.id = pe.event_master_id
+                    WHERE pe.participant_id = p.id AND em1.event_type = 'Individual') AS event_count,
+                   (SELECT COALESCE(SUM(pe2.fees), 0)
+                    FROM participant_events pe2
+                    JOIN event_master em2 ON em2.id = pe2.event_master_id
+                    WHERE pe2.participant_id = p.id AND em2.event_type = 'Individual') AS total_fees
             FROM participants p
             LEFT JOIN institutions i ON i.id = p.institution_id
             WHERE p.id = ? AND p.event_id = ?
@@ -125,11 +131,7 @@ if (!$participant) {
 }
 
 $participant_events = [];
-$stmt = $db->prepare('SELECT em.name AS event_name, pe.fees
-    FROM participant_events pe
-    INNER JOIN event_master em ON em.id = pe.event_master_id
-    WHERE pe.participant_id = ?
-    ORDER BY em.name');
+$stmt = $db->prepare("SELECT em.name AS event_name, pe.fees\n    FROM participant_events pe\n    INNER JOIN event_master em ON em.id = pe.event_master_id\n    WHERE pe.participant_id = ? AND em.event_type = 'Individual'\n    ORDER BY em.name");
 $stmt->bind_param('i', $participant_id);
 $stmt->execute();
 $participant_events = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);

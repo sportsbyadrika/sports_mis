@@ -28,7 +28,7 @@ if (!$context) {
     return;
 }
 
-$stats_subquery = 'SELECT participant_id, COUNT(*) AS total_events, COALESCE(SUM(fees), 0) AS total_fees FROM participant_events GROUP BY participant_id';
+$stats_subquery = "SELECT pe.participant_id, COUNT(*) AS total_events, COALESCE(SUM(pe.fees), 0) AS total_fees\n    FROM participant_events pe\n    INNER JOIN event_master em ON em.id = pe.event_master_id AND em.event_type = 'Individual'\n    GROUP BY pe.participant_id";
 $sql = "SELECT p.id, p.name, p.date_of_birth, p.gender, p.aadhaar_number, p.chest_number, p.photo_path, p.status,
         stats.total_events, stats.total_fees
         FROM participants p
@@ -42,7 +42,7 @@ $stmt->execute();
 $participants = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
 
-$stmt = $db->prepare("SELECT te.id, te.team_name, te.submitted_at, te.reviewed_at, em.code, em.name\n    FROM team_entries te\n    JOIN event_master em ON em.id = te.event_master_id\n    WHERE te.institution_id = ? AND te.status = 'approved'\n    ORDER BY em.name, te.team_name");
+$stmt = $db->prepare("SELECT te.id, te.team_name, te.submitted_at, te.reviewed_at, em.code, em.name, em.fees\n    FROM team_entries te\n    JOIN event_master em ON em.id = te.event_master_id\n    WHERE te.institution_id = ? AND te.status = 'approved'\n    ORDER BY em.name, te.team_name");
 $stmt->bind_param('i', $institution_id);
 $stmt->execute();
 $team_entries = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
@@ -50,6 +50,13 @@ $stmt->close();
 
 $team_entry_ids = array_map(static fn(array $entry): int => (int) $entry['id'], $team_entries);
 $team_members = [];
+$team_entries_total_fees = 0.0;
+
+foreach ($team_entries as &$team_entry) {
+    $team_entry['fees'] = (float) ($team_entry['fees'] ?? 0);
+    $team_entries_total_fees += $team_entry['fees'];
+}
+unset($team_entry);
 
 if ($team_entry_ids) {
     $placeholders = implode(',', array_fill(0, count($team_entry_ids), '?'));
@@ -262,6 +269,7 @@ unset($institution_event);
                 <th>Event Code</th>
                 <th>Event Name</th>
                 <th>Team Name</th>
+                <th>Fees (₹)</th>
                 <th>Participants</th>
             </tr>
         </thead>
@@ -274,6 +282,7 @@ unset($institution_event);
                     <td><?php echo sanitize($team_entry['code']); ?></td>
                     <td><?php echo sanitize($team_entry['name']); ?></td>
                     <td><?php echo sanitize($team_entry['team_name']); ?></td>
+                    <td style="text-align:right;">₹<?php echo number_format($team_entry['fees'], 2); ?></td>
                     <td>
                         <?php if ($members): ?>
                             <ul style="margin:0; padding-left:16px;">
@@ -292,9 +301,14 @@ unset($institution_event);
                     </td>
                 </tr>
             <?php endforeach; ?>
+            <tr class="totals-row">
+                <td colspan="4" style="text-align:right;">Total Team Event Fees</td>
+                <td style="text-align:right;">₹<?php echo number_format($team_entries_total_fees, 2); ?></td>
+                <td></td>
+            </tr>
         <?php else: ?>
             <tr>
-                <td colspan="5" style="text-align:center; padding:24px; color:#6c757d;">No team entries have been approved.</td>
+                <td colspan="6" style="text-align:center; padding:24px; color:#6c757d;">No team entries have been approved.</td>
             </tr>
         <?php endif; ?>
         </tbody>
