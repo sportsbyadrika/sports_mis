@@ -102,7 +102,7 @@ if (is_post() && $can_manage) {
     }
 }
 
-$statsSubquery = 'SELECT participant_id, COUNT(*) AS total_events, COALESCE(SUM(fees), 0) AS total_fees FROM participant_events GROUP BY participant_id';
+$statsSubquery = "SELECT pe.participant_id, COUNT(*) AS total_events, COALESCE(SUM(pe.fees), 0) AS total_fees\n    FROM participant_events pe\n    INNER JOIN event_master em ON em.id = pe.event_master_id AND em.event_type = 'Individual'\n    GROUP BY pe.participant_id";
 $sql = "SELECT p.id, p.institution_id, p.event_id, p.name, p.email, p.date_of_birth, p.gender, p.guardian_name, p.contact_number, p.status, p.chest_number, i.name AS institution_name, COALESCE(stats.total_events, 0) AS total_events, COALESCE(stats.total_fees, 0) AS total_fees FROM participants p LEFT JOIN institutions i ON i.id = p.institution_id LEFT JOIN ($statsSubquery) stats ON stats.participant_id = p.id";
 $conditions = [];
 $params = [];

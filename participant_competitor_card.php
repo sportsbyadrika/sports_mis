@@ -71,7 +71,7 @@ $participant_age = calculate_age($participant['date_of_birth']);
 $age_categories = fetch_age_categories($db);
 $participant_age_category = determine_age_category_label($participant_age, $age_categories);
 
-$stmt = $db->prepare('SELECT em.name, em.code, em.event_type, ac.name AS age_category_name FROM participant_events pe JOIN event_master em ON em.id = pe.event_master_id JOIN age_categories ac ON ac.id = em.age_category_id WHERE pe.participant_id = ? ORDER BY em.name');
+$stmt = $db->prepare("SELECT em.name, em.code, em.event_type, ac.name AS age_category_name\n    FROM participant_events pe\n    JOIN event_master em ON em.id = pe.event_master_id\n    JOIN age_categories ac ON ac.id = em.age_category_id\n    WHERE pe.participant_id = ? AND em.event_type = 'Individual'\n    ORDER BY em.name");
 $stmt->bind_param('i', $participant_id);
 $stmt->execute();
 $assigned_events = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);

@@ -138,7 +138,7 @@ if (is_post()) {
     }
 }
 
-$stmt = $db->prepare("SELECT id, code, name, label FROM event_master WHERE event_id = ? AND event_type = 'Team' ORDER BY name");
+$stmt = $db->prepare("SELECT id, code, name, label, fees FROM event_master WHERE event_id = ? AND event_type = 'Team' ORDER BY name");
 $stmt->bind_param('i', $event_id);
 $stmt->execute();
 $team_events = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
@@ -151,7 +151,26 @@ $participants = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
 $selectable_statuses = ['submitted', 'approved'];
 
-$stmt = $db->prepare('SELECT te.id, te.team_name, te.status, te.submitted_at, te.reviewed_at, em.name AS event_name, em.code, em.label, u1.name AS submitted_by_name, u2.name AS reviewed_by_name
+$participants_by_id = [];
+$eligible_participants = [];
+foreach ($participants as $participant) {
+    $participants_by_id[(int) $participant['id']] = $participant;
+    if (in_array($participant['status'], $selectable_statuses, true)) {
+        $eligible_participants[] = $participant;
+    }
+}
+$has_eligible_participants = count($eligible_participants) > 0;
+
+$team_events_indexed = [];
+foreach ($team_events as $event) {
+    $team_events_indexed[(int) $event['id']] = $event;
+}
+$selected_team_event_fee = null;
+if ($old_event_master_id && isset($team_events_indexed[$old_event_master_id])) {
+    $selected_team_event_fee = (float) $team_events_indexed[$old_event_master_id]['fees'];
+}
+
+$stmt = $db->prepare('SELECT te.id, te.team_name, te.status, te.submitted_at, te.reviewed_at, em.name AS event_name, em.code, em.label, em.fees, u1.name AS submitted_by_name, u2.name AS reviewed_by_name
     FROM team_entries te
     JOIN event_master em ON em.id = te.event_master_id
     LEFT JOIN users u1 ON u1.id = te.submitted_by
@@ -238,7 +257,9 @@ $error_message = get_flash('error');
                             <select class="form-select <?php echo isset($form_errors['event_master_id']) ? 'is-invalid' : ''; ?>" id="event_master_id" name="event_master_id" required>
                                 <option value="">-- Select Team Event --</option>
                                 <?php foreach ($team_events as $event): ?>
-                                    <option value="<?php echo (int) $event['id']; ?>" <?php echo $old_event_master_id === (int) $event['id'] ? 'selected' : ''; ?>>
+                                    <option value="<?php echo (int) $event['id']; ?>"
+                                        data-fees="<?php echo isset($event['fees']) ? sanitize(number_format((float) $event['fees'], 2, '.', '')) : '0.00'; ?>"
+                                        <?php echo $old_event_master_id === (int) $event['id'] ? 'selected' : ''; ?>>
                                         <?php echo sanitize($event['name']); ?>
                                         <?php if (!empty($event['label'])): ?>
                                             (<?php echo sanitize($event['label']); ?>)
@@ -249,36 +270,70 @@ $error_message = get_flash('error');
                             <?php if (isset($form_errors['event_master_id'])): ?>
                                 <div class="invalid-feedback"><?php echo sanitize($form_errors['event_master_id']); ?></div>
                             <?php endif; ?>
+                            <div class="mt-2 small" id="team_event_fee_wrapper">
+                                <span class="fw-semibold">Team Event Fees:</span>
+                                <span id="team_event_fee_value"><?php echo $selected_team_event_fee !== null ? '₹' . number_format($selected_team_event_fee, 2) : 'Select a team event to view fees.'; ?></span>
+                            </div>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Participants</label>
-                            <div class="border rounded p-2 participant-list-scroll" style="max-height: 240px; overflow-y: auto;">
-                                <?php foreach ($participants as $participant): ?>
-                                    <?php $is_selectable = in_array($participant['status'], $selectable_statuses, true); ?>
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="participants[]" value="<?php echo (int) $participant['id']; ?>" id="participant_<?php echo (int) $participant['id']; ?>" <?php echo $is_selectable ? '' : 'disabled'; ?> <?php echo ($is_selectable && in_array((int) $participant['id'], $old_selected_participants_ids, true)) ? 'checked' : ''; ?>>
-                                        <label class="form-check-label" for="participant_<?php echo (int) $participant['id']; ?>">
-                                            <?php echo sanitize($participant['name']); ?>
-                                            <?php if (!empty($participant['chest_number'])): ?>
-                                                <span class="text-muted">&middot; Chest <?php echo sanitize((string) $participant['chest_number']); ?></span>
+                            <label class="form-label" for="team_participant_select">Add Participants</label>
+                            <div class="input-group">
+                                <select class="form-select" id="team_participant_select" <?php echo $has_eligible_participants ? '' : 'disabled'; ?>>
+                                    <option value="">-- Select Participant --</option>
+                                    <?php foreach ($eligible_participants as $participant_option): ?>
+                                        <option value="<?php echo (int) $participant_option['id']; ?>"
+                                            data-name="<?php echo sanitize($participant_option['name']); ?>"
+                                            data-status="<?php echo sanitize($participant_option['status']); ?>"
+                                            data-chest="<?php echo $participant_option['chest_number'] ? sanitize((string) $participant_option['chest_number']) : ''; ?>">
+                                            <?php echo sanitize($participant_option['name']); ?>
+                                            <?php if (!empty($participant_option['chest_number'])): ?>
+                                                (Chest <?php echo sanitize((string) $participant_option['chest_number']); ?>)
                                             <?php endif; ?>
-                                            <span class="badge bg-light text-dark border ms-1 text-uppercase"><?php echo sanitize($participant['status']); ?></span>
-                                            <?php if (!$is_selectable): ?>
-                                                <span class="text-muted small ms-1">(Not eligible yet)</span>
-                                            <?php endif; ?>
-                                        </label>
-                                    </div>
-                                <?php endforeach; ?>
-                                <?php if (!$participants): ?>
-                                    <div class="text-muted small">No participants registered for this institution yet.</div>
-                                <?php endif; ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <button type="button" class="btn btn-outline-primary" id="add_participant_button" <?php echo $has_eligible_participants ? '' : 'disabled'; ?>>Add</button>
                             </div>
+                            <div class="form-text">Only participants whose status is submitted or approved can be added to a team.</div>
+                            <div class="text-danger small mt-2 d-none" id="participant_selection_error"></div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Selected Participants</label>
+                            <ul class="list-group" id="selected_participants_list">
+                                <li class="list-group-item text-muted <?php echo $old_selected_participants_ids ? 'd-none' : ''; ?>" data-role="empty">No participants added yet.</li>
+                                <?php foreach ($old_selected_participants_ids as $participant_id): ?>
+                                    <?php $participant_info = $participants_by_id[$participant_id] ?? null; ?>
+                                    <?php if (!$participant_info) { continue; } ?>
+                                    <?php $participant_is_eligible = in_array($participant_info['status'], $selectable_statuses, true); ?>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center<?php echo $participant_is_eligible ? '' : ' list-group-item-warning'; ?>" data-participant-id="<?php echo (int) $participant_info['id']; ?>">
+                                        <div class="me-3">
+                                            <div class="fw-semibold"><?php echo sanitize($participant_info['name']); ?></div>
+                                        <div class="small text-muted">
+                                                Status: <?php echo sanitize($participant_info['status']); ?>
+                                                <?php if (!empty($participant_info['chest_number'])): ?>
+                                                    &middot; Chest <?php echo sanitize((string) $participant_info['chest_number']); ?>
+                                                <?php endif; ?>
+                                                <?php if (!$participant_is_eligible): ?>
+                                                    <span class="text-danger ms-1">(Not eligible)</span>
+                                                <?php endif; ?>
+                                            </div>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <button type="button" class="btn btn-sm btn-outline-danger" data-remove-participant>Remove</button>
+                                        </div>
+                                        <input type="hidden" name="participants[]" value="<?php echo (int) $participant_info['id']; ?>">
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
                             <?php if (isset($form_errors['participants'])): ?>
                                 <div class="text-danger small mt-2"><?php echo sanitize($form_errors['participants']); ?></div>
                             <?php endif; ?>
                         </div>
                         <button type="submit" class="btn btn-primary w-100">Submit Team Entry</button>
                     </form>
+                    <?php if (!$has_eligible_participants): ?>
+                        <div class="alert alert-warning mt-3 mb-0 small">No eligible participants are available yet. Participants must be submitted or approved before they can be added to a team.</div>
+                    <?php endif; ?>
                 <?php else: ?>
                     <p class="text-muted mb-0">No team events are configured for this event.</p>
                 <?php endif; ?>
@@ -299,6 +354,7 @@ $error_message = get_flash('error');
                                 <tr>
                                     <th>Team</th>
                                     <th>Event</th>
+                                    <th class="text-end">Fees (₹)</th>
                                     <th>Participants</th>
                                     <th>Status</th>
                                     <th class="text-end">Actions</th>
@@ -315,6 +371,7 @@ $error_message = get_flash('error');
                                             <div class="fw-semibold"><?php echo sanitize($entry['event_name']); ?></div>
                                             <div class="text-muted small"><?php echo sanitize($entry['code']); ?><?php if (!empty($entry['label'])): ?> &middot; <?php echo sanitize($entry['label']); ?><?php endif; ?></div>
                                         </td>
+                                        <td class="text-end">₹<?php echo number_format((float) ($entry['fees'] ?? 0), 2); ?></td>
                                         <td>
                                             <?php $members = $team_members[$entry['id']] ?? []; ?>
                                             <?php if ($members): ?>
@@ -365,6 +422,182 @@ $error_message = get_flash('error');
                 <?php endif; ?>
             </div>
         </div>
-    </div>
 </div>
+</div>
+<?php if ($team_events): ?>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const eventSelect = document.getElementById('event_master_id');
+            const feeValue = document.getElementById('team_event_fee_value');
+            const participantSelect = document.getElementById('team_participant_select');
+            const addButton = document.getElementById('add_participant_button');
+            const selectedList = document.getElementById('selected_participants_list');
+            const selectionError = document.getElementById('participant_selection_error');
+
+            if (!eventSelect || !feeValue || !selectedList) {
+                return;
+            }
+
+            const emptyItem = selectedList.querySelector('[data-role="empty"]');
+
+            const formatFee = (value) => {
+                const parsed = Number.parseFloat(value);
+                if (Number.isNaN(parsed)) {
+                    return null;
+                }
+                return '₹' + parsed.toFixed(2);
+            };
+
+            const updateFeeDisplay = () => {
+                const option = eventSelect.options[eventSelect.selectedIndex];
+                const fees = option && option.dataset ? option.dataset.fees : null;
+                const formatted = fees ? formatFee(fees) : null;
+                feeValue.textContent = formatted || 'Select a team event to view fees.';
+            };
+
+            const getSelectedIds = () => Array.from(selectedList.querySelectorAll('input[name="participants[]"]')).map((input) => input.value);
+
+            const updateOptionStates = () => {
+                if (!participantSelect) {
+                    return;
+                }
+                const selectedIds = new Set(getSelectedIds());
+                Array.from(participantSelect.options).forEach((option) => {
+                    if (!option.value) {
+                        return;
+                    }
+                    option.disabled = selectedIds.has(option.value);
+                });
+            };
+
+            const updateEmptyState = () => {
+                if (!emptyItem) {
+                    return;
+                }
+                const hasParticipants = getSelectedIds().length > 0;
+                emptyItem.classList.toggle('d-none', hasParticipants);
+            };
+
+            const clearSelectionError = () => {
+                if (!selectionError) {
+                    return;
+                }
+                selectionError.textContent = '';
+                selectionError.classList.add('d-none');
+            };
+
+            const showSelectionError = (message) => {
+                if (!selectionError) {
+                    return;
+                }
+                selectionError.textContent = message;
+                selectionError.classList.remove('d-none');
+            };
+
+            const createListItem = (option) => {
+                const participantId = option.value;
+                const name = option.dataset.name || '';
+                const status = option.dataset.status || '';
+                const chest = option.dataset.chest || '';
+
+                const listItem = document.createElement('li');
+                listItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+                listItem.dataset.participantId = participantId;
+
+                const infoWrapper = document.createElement('div');
+                infoWrapper.className = 'me-3';
+
+                const nameEl = document.createElement('div');
+                nameEl.className = 'fw-semibold';
+                nameEl.textContent = name;
+                infoWrapper.appendChild(nameEl);
+
+                const metaEl = document.createElement('div');
+                metaEl.className = 'small text-muted';
+                metaEl.textContent = `Status: ${status}${chest ? ` · Chest ${chest}` : ''}`;
+                infoWrapper.appendChild(metaEl);
+
+                listItem.appendChild(infoWrapper);
+
+                const actionsWrapper = document.createElement('div');
+                actionsWrapper.className = 'd-flex align-items-center gap-2';
+
+                const removeButton = document.createElement('button');
+                removeButton.type = 'button';
+                removeButton.className = 'btn btn-sm btn-outline-danger';
+                removeButton.setAttribute('data-remove-participant', 'true');
+                removeButton.textContent = 'Remove';
+                actionsWrapper.appendChild(removeButton);
+
+                listItem.appendChild(actionsWrapper);
+
+                const hiddenInput = document.createElement('input');
+                hiddenInput.type = 'hidden';
+                hiddenInput.name = 'participants[]';
+                hiddenInput.value = participantId;
+                listItem.appendChild(hiddenInput);
+
+                return listItem;
+            };
+
+            if (addButton && participantSelect) {
+                addButton.addEventListener('click', () => {
+                    if (!participantSelect.value) {
+                        showSelectionError('Select a participant to add.');
+                        return;
+                    }
+
+                    const selectedOption = participantSelect.options[participantSelect.selectedIndex];
+                    if (!selectedOption || selectedOption.disabled) {
+                        showSelectionError('The selected participant is already added.');
+                        return;
+                    }
+
+                    const newItem = createListItem(selectedOption);
+                    selectedList.appendChild(newItem);
+                    selectedOption.disabled = true;
+                    participantSelect.value = '';
+                    clearSelectionError();
+                    updateOptionStates();
+                    updateEmptyState();
+                });
+            }
+
+            selectedList.addEventListener('click', (event) => {
+                const removeButton = event.target.closest('[data-remove-participant]');
+                if (!removeButton) {
+                    return;
+                }
+
+                const item = removeButton.closest('li[data-participant-id]');
+                if (!item) {
+                    return;
+                }
+
+                const participantId = item.dataset.participantId;
+                item.remove();
+
+                if (participantSelect && participantId) {
+                    const option = participantSelect.querySelector(`option[value="${participantId}"]`);
+                    if (option) {
+                        option.disabled = false;
+                    }
+                }
+
+                updateEmptyState();
+                updateOptionStates();
+            });
+
+            if (eventSelect) {
+                eventSelect.addEventListener('change', () => {
+                    updateFeeDisplay();
+                });
+            }
+
+            updateFeeDisplay();
+            updateOptionStates();
+            updateEmptyState();
+        });
+    </script>
+<?php endif; ?>
 <?php include __DIR__ . '/includes/footer.php'; ?>

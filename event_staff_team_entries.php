@@ -69,7 +69,7 @@ $institutions = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $stmt->close();
 
 $sql = 'SELECT te.id, te.team_name, te.status, te.submitted_at, te.reviewed_at, i.name AS institution_name,
-               em.name AS event_name, em.code, em.label,
+               em.name AS event_name, em.code, em.label, em.fees,
                u1.name AS submitted_by_name, u2.name AS reviewed_by_name
         FROM team_entries te
         JOIN institutions i ON i.id = te.institution_id
@@ -193,6 +193,7 @@ $error_message = get_flash('error');
                             <th>Team</th>
                             <th>Institution</th>
                             <th>Event</th>
+                            <th class="text-end">Fees (₹)</th>
                             <th>Participants</th>
                             <th>Status</th>
                             <th class="text-end">Actions</th>
@@ -210,6 +211,7 @@ $error_message = get_flash('error');
                                     <div class="fw-semibold"><?php echo sanitize($entry['event_name']); ?></div>
                                     <div class="text-muted small"><?php echo sanitize($entry['code']); ?><?php if (!empty($entry['label'])): ?> &middot; <?php echo sanitize($entry['label']); ?><?php endif; ?></div>
                                 </td>
+                                <td class="text-end">₹<?php echo number_format((float) ($entry['fees'] ?? 0), 2); ?></td>
                                 <td>
                                     <?php $members = $team_members[$entry['id']] ?? []; ?>
                                     <?php if ($members): ?>

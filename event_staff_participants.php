@@ -32,11 +32,12 @@ $types = 'i';
 $params = [$assigned_event_id];
 $sql = "SELECT p.id, p.name, p.gender, p.contact_number, p.status, p.chest_number,
                i.name AS institution_name,
-               COUNT(pe.id) AS event_count,
-               COALESCE(SUM(pe.fees), 0) AS total_fees
+               COUNT(CASE WHEN em.event_type = 'Individual' THEN pe.id END) AS event_count,
+               COALESCE(SUM(CASE WHEN em.event_type = 'Individual' THEN pe.fees ELSE 0 END), 0) AS total_fees
         FROM participants p
         LEFT JOIN institutions i ON i.id = p.institution_id
         LEFT JOIN participant_events pe ON pe.participant_id = p.id
+        LEFT JOIN event_master em ON em.id = pe.event_master_id
         WHERE p.event_id = ?";
 
 if ($selected_institution_id > 0) {
