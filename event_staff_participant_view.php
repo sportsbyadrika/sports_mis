@@ -25,7 +25,7 @@ if ($participant_id <= 0) {
 // Helper to load participant details with aggregates.
 function fetch_participant(mysqli $db, int $participant_id, int $event_id): ?array
 {
-    $sql = "SELECT p.name, p.gender, p.contact_number, p.status, p.chest_number,
+    $sql = "SELECT p.name, p.gender, p.contact_number, p.status, p.chest_number, p.date_of_birth, p.photo_path,
                    i.name AS institution_name,
                    (SELECT COUNT(*)
                     FROM participant_events pe
@@ -130,6 +130,10 @@ if (!$participant) {
     return;
 }
 
+$participant_age = calculate_age($participant['date_of_birth'] ?? null);
+$age_categories = fetch_age_categories($db);
+$participant_age_category = determine_age_category_label($participant_age, $age_categories);
+
 $participant_events = [];
 $stmt = $db->prepare("SELECT em.name AS event_name, pe.fees\n    FROM participant_events pe\n    INNER JOIN event_master em ON em.id = pe.event_master_id\n    WHERE pe.participant_id = ? AND em.event_type = 'Individual'\n    ORDER BY em.name");
 $stmt->bind_param('i', $participant_id);
@@ -176,35 +180,56 @@ $status_classes = [
         <div class="card shadow-sm h-100">
             <div class="card-body">
                 <h2 class="h5 mb-3">Personal Information</h2>
-                <dl class="row mb-0">
-                    <dt class="col-sm-4">Name</dt>
-                    <dd class="col-sm-8"><?php echo sanitize($participant['name']); ?></dd>
+                <div class="row g-4 align-items-start">
+                    <div class="col-md-8">
+                        <dl class="row mb-0">
+                            <dt class="col-sm-4">Name</dt>
+                            <dd class="col-sm-8"><?php echo sanitize($participant['name']); ?></dd>
 
-                    <dt class="col-sm-4">Institution</dt>
-                    <dd class="col-sm-8"><?php echo sanitize($participant['institution_name'] ?? ''); ?></dd>
+                            <dt class="col-sm-4">Institution</dt>
+                            <dd class="col-sm-8"><?php echo sanitize($participant['institution_name'] ?? ''); ?></dd>
 
-                    <dt class="col-sm-4">Gender</dt>
-                    <dd class="col-sm-8"><?php echo sanitize($participant['gender']); ?></dd>
+                            <dt class="col-sm-4">Date of Birth</dt>
+                            <dd class="col-sm-8"><?php echo $participant['date_of_birth'] ? sanitize(format_date($participant['date_of_birth'])) : '<span class="text-muted">Not available</span>'; ?></dd>
 
-                    <dt class="col-sm-4">Contact Number</dt>
-                    <dd class="col-sm-8"><?php echo sanitize($participant['contact_number']); ?></dd>
+                            <dt class="col-sm-4">Age</dt>
+                            <dd class="col-sm-8"><?php echo $participant_age !== null ? (int) $participant_age . ' years' : '<span class="text-muted">Not available</span>'; ?></dd>
 
-                    <dt class="col-sm-4">Chest Number</dt>
-                    <dd class="col-sm-8"><?php echo $participant['chest_number'] ? sanitize((string) $participant['chest_number']) : '<span class="text-muted">Not assigned</span>'; ?></dd>
+                            <dt class="col-sm-4">Age Category</dt>
+                            <dd class="col-sm-8"><?php echo $participant_age_category ? sanitize($participant_age_category) : '<span class="text-muted">No age category</span>'; ?></dd>
 
-                    <dt class="col-sm-4">Status</dt>
-                    <dd class="col-sm-8">
-                        <span class="badge bg-<?php echo $status_classes[$participant['status']] ?? 'secondary'; ?> text-uppercase">
-                            <?php echo sanitize($participant['status']); ?>
-                        </span>
-                    </dd>
+                            <dt class="col-sm-4">Gender</dt>
+                            <dd class="col-sm-8"><?php echo sanitize($participant['gender']); ?></dd>
 
-                    <dt class="col-sm-4">Participating Events</dt>
-                    <dd class="col-sm-8"><?php echo (int) $participant['event_count']; ?></dd>
+                            <dt class="col-sm-4">Contact Number</dt>
+                            <dd class="col-sm-8"><?php echo sanitize($participant['contact_number']); ?></dd>
 
-                    <dt class="col-sm-4">Total Fees</dt>
-                    <dd class="col-sm-8">₹<?php echo number_format((float) $participant['total_fees'], 2); ?></dd>
-                </dl>
+                            <dt class="col-sm-4">Chest Number</dt>
+                            <dd class="col-sm-8"><?php echo $participant['chest_number'] ? sanitize((string) $participant['chest_number']) : '<span class="text-muted">Not assigned</span>'; ?></dd>
+
+                            <dt class="col-sm-4">Status</dt>
+                            <dd class="col-sm-8">
+                                <span class="badge bg-<?php echo $status_classes[$participant['status']] ?? 'secondary'; ?> text-uppercase">
+                                    <?php echo sanitize($participant['status']); ?>
+                                </span>
+                            </dd>
+
+                            <dt class="col-sm-4">Participating Events</dt>
+                            <dd class="col-sm-8"><?php echo (int) $participant['event_count']; ?></dd>
+
+                            <dt class="col-sm-4">Total Fees</dt>
+                            <dd class="col-sm-8">₹<?php echo number_format((float) $participant['total_fees'], 2); ?></dd>
+                        </dl>
+                    </div>
+                    <div class="col-md-4 text-center">
+                        <div class="text-muted small mb-2">Participant Photo</div>
+                        <?php if (!empty($participant['photo_path'])): ?>
+                            <img src="<?php echo sanitize($participant['photo_path']); ?>" alt="Participant photo" class="img-fluid rounded border" style="max-width: 220px;">
+                        <?php else: ?>
+                            <div class="text-muted">No photo available</div>
+                        <?php endif; ?>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
