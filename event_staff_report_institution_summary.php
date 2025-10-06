@@ -1,17 +1,74 @@
 <?php
 $page_title = 'Institution Wise Count Report';
-require_once __DIR__ . '/includes/header.php';
+require_once __DIR__ . '/includes/auth.php';
 
 require_login();
 require_role(['event_staff']);
+
+$is_print_view = (int) get_param('print', 0) === 1;
+
+if (!$is_print_view) {
+    require_once __DIR__ . '/includes/header.php';
+}
 
 $user = current_user();
 $db = get_db_connection();
 
 if (!$user['event_id']) {
+    if ($is_print_view) {
+        ?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title><?php echo sanitize($page_title); ?> - <?php echo APP_NAME; ?></title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="assets/css/app.css" rel="stylesheet">
+    <style>
+        body { background-color: #ffffff; }
+    </style>
+</head>
+<body class="bg-white">
+<main class="container my-4">
+        <?php
+    }
+
     echo '<div class="alert alert-warning">No event assigned to your account. Please contact the event administrator.</div>';
-    include __DIR__ . '/includes/footer.php';
+
+    if ($is_print_view) {
+        ?>
+</main>
+</body>
+</html>
+        <?php
+    } else {
+        include __DIR__ . '/includes/footer.php';
+    }
+
     return;
+}
+
+if ($is_print_view) {
+    ?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title><?php echo sanitize($page_title); ?> - <?php echo APP_NAME; ?></title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="assets/css/app.css" rel="stylesheet">
+    <style>
+        body { background-color: #ffffff; }
+        @media print {
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body class="bg-white">
+<main class="container my-4">
+    <?php
 }
 
 $event_id = (int) $user['event_id'];
@@ -110,14 +167,23 @@ $stmt->close();
         <h1 class="h4 mb-0">Institution Wise Count</h1>
         <p class="text-muted mb-0">Summary of participant, team, and institution-level registrations with payment tracking.</p>
     </div>
+    <?php if (!$is_print_view): ?>
+        <div>
+            <a href="event_staff_report_institution_summary.php?print=1" target="_blank" rel="noopener" class="btn btn-outline-primary">
+                Open Print View
+            </a>
+        </div>
+    <?php endif; ?>
 </div>
 <?php if (!$institutions): ?>
     <div class="alert alert-info">No institutions found for your event.</div>
 <?php else: ?>
-    <div class="card shadow-sm">
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-bordered table-sm align-middle">
+    <?php if (!$is_print_view): ?>
+        <div class="card shadow-sm">
+            <div class="card-body">
+    <?php endif; ?>
+                <div class="table-responsive">
+                    <table class="table table-bordered table-sm align-middle">
                     <thead class="table-light">
                         <tr>
                             <th rowspan="2" class="text-center">#</th>
@@ -225,10 +291,17 @@ $stmt->close();
                             <th class="text-end">₹<?php echo number_format($totals['balance_fee'], 2); ?></th>
                         </tr>
                     </tfoot>
-                </table>
+                    </table>
+                </div>
+    <?php if (!$is_print_view): ?>
             </div>
         </div>
-    </div>
+    <?php endif; ?>
 <?php endif; ?>
-
+<?php if ($is_print_view): ?>
+</main>
+</body>
+</html>
+<?php else: ?>
 <?php include __DIR__ . '/includes/footer.php'; ?>
+<?php endif; ?>
