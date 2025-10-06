@@ -30,7 +30,7 @@ if (!$user['event_id']) {
     </style>
 </head>
 <body class="bg-white">
-<main class="container my-4">
+<main class="container-fluid my-4">
         <?php
     }
 
@@ -67,7 +67,7 @@ if ($is_print_view) {
     </style>
 </head>
 <body class="bg-white">
-<main class="container my-4">
+<main class="container-fluid my-4">
     <?php
 }
 

@@ -135,7 +135,7 @@ $age_categories = fetch_age_categories($db);
 $participant_age_category = determine_age_category_label($participant_age, $age_categories);
 
 $participant_events = [];
-$stmt = $db->prepare("SELECT em.name AS event_name, pe.fees\n    FROM participant_events pe\n    INNER JOIN event_master em ON em.id = pe.event_master_id\n    WHERE pe.participant_id = ? AND em.event_type = 'Individual'\n    ORDER BY em.name");
+$stmt = $db->prepare("SELECT em.name AS event_name, em.label AS event_label, pe.fees\n    FROM participant_events pe\n    INNER JOIN event_master em ON em.id = pe.event_master_id\n    WHERE pe.participant_id = ? AND em.event_type = 'Individual'\n    ORDER BY em.name");
 $stmt->bind_param('i', $participant_id);
 $stmt->execute();
 $participant_events = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
@@ -264,6 +264,7 @@ $status_classes = [
                     <thead>
                         <tr>
                             <th scope="col">Event</th>
+                            <th scope="col">Label</th>
                             <th scope="col" class="text-end">Fees</th>
                         </tr>
                     </thead>
@@ -271,6 +272,11 @@ $status_classes = [
                         <?php foreach ($participant_events as $event): ?>
                             <tr>
                                 <td><?php echo sanitize($event['event_name']); ?></td>
+                                <td>
+                                    <?php echo $event['event_label'] !== null && $event['event_label'] !== ''
+                                        ? sanitize($event['event_label'])
+                                        : '<span class="text-muted">No label</span>'; ?>
+                                </td>
                                 <td class="text-end">₹<?php echo number_format((float) $event['fees'], 2); ?></td>
                             </tr>
                         <?php endforeach; ?>
