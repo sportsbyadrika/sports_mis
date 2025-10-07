@@ -41,6 +41,7 @@
                         <a class="nav-link dropdown-toggle" href="#" id="eventStaffReports" role="button" data-bs-toggle="dropdown" aria-expanded="false">Reports</a>
                         <ul class="dropdown-menu" aria-labelledby="eventStaffReports">
                             <li><a class="dropdown-item" href="event_staff_report_institution_summary.php">Institution Wise Count</a></li>
+                            <li><a class="dropdown-item" href="event_staff_report_event_participants.php">Event Wise Approved Participants</a></li>
                         </ul>
                     </li>
                 <?php endif; ?>
