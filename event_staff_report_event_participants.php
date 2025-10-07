@@ -174,9 +174,26 @@ if ($event_master_id > 0) {
 require_once __DIR__ . '/includes/header.php';
 
 $selected_gender = trim((string) get_param('gender', ''));
+$selected_age_category_id = (int) get_param('age_category_id', 0);
 $valid_genders = ['Male', 'Female', 'Open'];
 if ($selected_gender !== '' && !in_array($selected_gender, $valid_genders, true)) {
     $selected_gender = '';
+}
+
+$age_categories = [];
+$stmt = $db->prepare('SELECT DISTINCT ac.id, ac.name, ac.min_age, ac.max_age
+    FROM event_master em
+    INNER JOIN age_categories ac ON ac.id = em.age_category_id
+    WHERE em.event_id = ?
+    ORDER BY COALESCE(ac.min_age, 0), COALESCE(ac.max_age, 9999), ac.name');
+$stmt->bind_param('i', $assigned_event_id);
+$stmt->execute();
+$age_categories = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
+
+$valid_age_category_ids = array_map(static fn(array $category): int => (int) $category['id'], $age_categories);
+if ($selected_age_category_id > 0 && !in_array($selected_age_category_id, $valid_age_category_ids, true)) {
+    $selected_age_category_id = 0;
 }
 
 $sql = "SELECT em.id, em.name, em.label, em.gender, ac.name AS age_category_name, ac.min_age, ac.max_age,
@@ -193,6 +210,12 @@ if ($selected_gender !== '') {
     $sql .= ' AND em.gender = ?';
     $params[] = $selected_gender;
     $types .= 's';
+}
+
+if ($selected_age_category_id > 0) {
+    $sql .= ' AND em.age_category_id = ?';
+    $params[] = $selected_age_category_id;
+    $types .= 'i';
 }
 
 $sql .= ' GROUP BY em.id, em.name, em.label, em.gender, ac.name, ac.min_age, ac.max_age';
@@ -219,6 +242,15 @@ $stmt->close();
                     <option value="">All Genders</option>
                     <?php foreach ($valid_genders as $gender): ?>
                         <option value="<?php echo sanitize($gender); ?>" <?php echo $selected_gender === $gender ? 'selected' : ''; ?>><?php echo sanitize($gender); ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="col-sm-4 col-md-3">
+                <label for="age_category_id" class="form-label">Age Category</label>
+                <select name="age_category_id" id="age_category_id" class="form-select">
+                    <option value="0">All Age Categories</option>
+                    <?php foreach ($age_categories as $category): ?>
+                        <option value="<?php echo (int) $category['id']; ?>" <?php echo $selected_age_category_id === (int) $category['id'] ? 'selected' : ''; ?>><?php echo sanitize($category['name']); ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
