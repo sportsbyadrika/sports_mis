@@ -233,6 +233,10 @@ $stmt->close();
         <h1 class="h4 mb-0">Event Wise Approved Participants</h1>
         <p class="text-muted mb-0">Review approved participant counts per event and open printable lists.</p>
     </div>
+    <button type="button" class="btn btn-outline-secondary d-inline-flex align-items-center gap-2 no-print" onclick="window.print();">
+        <i class="bi bi-printer"></i>
+        <span>Print</span>
+    </button>
 </div>
 <div class="card shadow-sm mb-4">
     <div class="card-body">
@@ -288,8 +292,9 @@ $stmt->close();
                                 <td><?php echo sanitize($event['gender']); ?></td>
                                 <td class="text-center fw-semibold"><?php echo (int) $event['approved_count']; ?></td>
                                 <td class="text-end">
-                                    <a href="event_staff_report_event_participants.php?event_master_id=<?php echo (int) $event['id']; ?>" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">
-                                        View Approved Participants
+                                    <a href="event_staff_report_event_participants.php?event_master_id=<?php echo (int) $event['id']; ?>" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary" title="Open approved participant list">
+                                        <i class="bi bi-list-ul"></i>
+                                        <span class="visually-hidden">View Approved Participants</span>
                                     </a>
                                 </td>
                             </tr>

@@ -222,6 +222,10 @@ $stmt->close();
         <h1 class="h4 mb-0">Event Wise Approved Teams</h1>
         <p class="text-muted mb-0">Filter team events and open printable reports of approved team entries.</p>
     </div>
+    <button type="button" class="btn btn-outline-secondary d-inline-flex align-items-center gap-2 no-print" onclick="window.print();">
+        <i class="bi bi-printer"></i>
+        <span>Print</span>
+    </button>
 </div>
 <div class="card shadow-sm mb-4">
     <div class="card-body">
