@@ -82,8 +82,19 @@ $redirect_url = 'institution_event_registrations.php' . ($redirect_params ? '?' 
 
 $institution_options = [];
 
-if (in_array($role, ['event_admin', 'event_staff'], true)) {
+if ($role === 'event_admin') {
     $stmt = $db->prepare('SELECT id, name FROM institutions WHERE event_id = ? ORDER BY name');
+    $stmt->bind_param('i', $event_id);
+    $stmt->execute();
+    $institution_options = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+} elseif ($role === 'event_staff') {
+    $stmt = $db->prepare('SELECT DISTINCT i.id, i.name
+        FROM institutions i
+        INNER JOIN institution_event_registrations ier ON ier.institution_id = i.id
+        INNER JOIN event_master em ON em.id = ier.event_master_id AND em.event_type = "Institution"
+        WHERE i.event_id = ?
+        ORDER BY i.name');
     $stmt->bind_param('i', $event_id);
     $stmt->execute();
     $institution_options = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
@@ -111,7 +122,8 @@ if ((in_array($role, ['event_admin', 'event_staff'], true) || $role === 'super_a
             if (isset($option['event_name'])) {
                 $label .= ' (' . sanitize($option['event_name']) . ')';
             }
-            echo '<option value="' . (int) $option['id'] . '">' . $label . '</option>';
+            $selected = $institution_id === (int) $option['id'] ? ' selected' : '';
+            echo '<option value="' . (int) $option['id'] . '"' . $selected . '>' . $label . '</option>';
         }
         echo '</select>';
         echo '</div>';

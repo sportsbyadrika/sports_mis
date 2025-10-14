@@ -90,10 +90,13 @@ if ($event_master_id > 0) {
         <title><?php echo sanitize($event_master['label'] ?: $event_master['name']); ?> - Approved Teams</title>
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
         <style>
+            html { background-color: #ffffff; }
             body { background-color: #ffffff; }
             @media print {
                 .no-print { display: none !important; }
+                html, body { background-color: #ffffff !important; }
                 body { margin: 0; }
+                main { background-color: #ffffff !important; }
             }
         </style>
     </head>
@@ -164,6 +167,15 @@ if ($event_master_id > 0) {
 }
 
 require_once __DIR__ . '/includes/header.php';
+
+?>
+<style>
+    @media print {
+        body { background-color: #ffffff !important; }
+        main.container { background-color: #ffffff !important; }
+    }
+</style>
+<?php
 
 $selected_gender = trim((string) get_param('gender', ''));
 $selected_age_category_id = (int) get_param('age_category_id', 0);
