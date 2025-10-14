@@ -13,8 +13,28 @@ if (!$user['event_id']) {
 }
 
 $assigned_event_id = (int) $user['event_id'];
-$search = trim((string) get_param('q', ''));
-$selected_institution_id = (int) get_param('institution_id', 0);
+$filters_session_key = 'event_staff_participants_filters';
+
+if ((int) get_param('reset', 0) === 1) {
+    unset($_SESSION[$filters_session_key]);
+    $search = '';
+    $selected_institution_id = 0;
+} else {
+    $has_filter_query = array_key_exists('institution_id', $_GET) || array_key_exists('q', $_GET);
+
+    if ($has_filter_query) {
+        $search = trim((string) get_param('q', ''));
+        $selected_institution_id = (int) get_param('institution_id', 0);
+        $_SESSION[$filters_session_key] = [
+            'search' => $search,
+            'institution_id' => $selected_institution_id,
+        ];
+    } else {
+        $stored_filters = $_SESSION[$filters_session_key] ?? [];
+        $search = trim((string) ($stored_filters['search'] ?? ''));
+        $selected_institution_id = (int) ($stored_filters['institution_id'] ?? 0);
+    }
+}
 
 // Load institutions that have participants registered for the assigned event.
 $institutions = [];
@@ -87,7 +107,7 @@ $stmt->close();
             </div>
             <div class="col-md-4 d-flex gap-2">
                 <button type="submit" class="btn btn-primary">Apply Filters</button>
-                <a href="event_staff_participants.php" class="btn btn-outline-secondary">Reset</a>
+                <a href="event_staff_participants.php?reset=1" class="btn btn-outline-secondary">Reset</a>
             </div>
         </form>
     </div>
