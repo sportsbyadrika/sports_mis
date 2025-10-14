@@ -22,7 +22,7 @@ if ($event_master_id > 0) {
     $stmt = $db->prepare('SELECT em.id, em.name, em.label, em.gender, ac.name AS age_category_name
         FROM event_master em
         INNER JOIN age_categories ac ON ac.id = em.age_category_id
-        WHERE em.id = ? AND em.event_id = ?
+        WHERE em.id = ? AND em.event_id = ? AND em.event_type = "Individual"
         LIMIT 1');
     $stmt->bind_param('ii', $event_master_id, $assigned_event_id);
     $stmt->execute();
@@ -52,9 +52,10 @@ if ($event_master_id > 0) {
 
     $stmt = $db->prepare('SELECT p.id, p.name, p.gender, p.date_of_birth, p.chest_number, p.photo_path, i.name AS institution_name
         FROM participant_events pe
+        INNER JOIN event_master em ON em.id = pe.event_master_id
         INNER JOIN participants p ON p.id = pe.participant_id
         LEFT JOIN institutions i ON i.id = p.institution_id
-        WHERE pe.event_master_id = ? AND p.event_id = ? AND p.status = "approved"
+        WHERE pe.event_master_id = ? AND em.event_id = ? AND em.event_type = "Individual" AND p.status = "approved"
         ORDER BY COALESCE(p.chest_number, 999999), p.name');
     $stmt->bind_param('ii', $event_master_id, $assigned_event_id);
     $stmt->execute();
@@ -184,7 +185,7 @@ $age_categories = [];
 $stmt = $db->prepare('SELECT DISTINCT ac.id, ac.name, ac.min_age, ac.max_age
     FROM event_master em
     INNER JOIN age_categories ac ON ac.id = em.age_category_id
-    WHERE em.event_id = ?
+    WHERE em.event_id = ? AND em.event_type = "Individual"
     ORDER BY COALESCE(ac.min_age, 0), COALESCE(ac.max_age, 9999), ac.name');
 $stmt->bind_param('i', $assigned_event_id);
 $stmt->execute();
@@ -202,7 +203,7 @@ $sql = "SELECT em.id, em.name, em.label, em.gender, ac.name AS age_category_name
     INNER JOIN age_categories ac ON ac.id = em.age_category_id
     LEFT JOIN participant_events pe ON pe.event_master_id = em.id
     LEFT JOIN participants p ON p.id = pe.participant_id AND p.status = 'approved'
-    WHERE em.event_id = ?";
+    WHERE em.event_id = ? AND em.event_type = 'Individual'";
 $params = [$assigned_event_id];
 $types = 'i';
 
