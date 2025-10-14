@@ -43,6 +43,7 @@
                             <li><a class="dropdown-item" href="event_staff_report_institution_summary.php">Institution Wise Count</a></li>
                             <li><a class="dropdown-item" href="event_staff_report_institution_participants.php">Institution Wise Approved Participants</a></li>
                             <li><a class="dropdown-item" href="event_staff_report_event_participants.php">Event Wise Approved Participants</a></li>
+                            <li><a class="dropdown-item" href="event_staff_report_event_teams.php">Event Wise Approved Teams</a></li>
                         </ul>
                     </li>
                 <?php endif; ?>
