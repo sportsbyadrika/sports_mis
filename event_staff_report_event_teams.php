@@ -118,9 +118,11 @@ if ($event_master_id > 0) {
                     <thead class="table-light">
                         <tr>
                             <th scope="col" class="text-center" style="width: 60px;">#</th>
-                            <th scope="col" style="width: 25%;">Event Label</th>
+                            <th scope="col" style="width: 20%;">Event Label</th>
+                            <th scope="col" style="width: 20%;">Team</th>
+                            <th scope="col" style="width: 20%;">Institution</th>
                             <th scope="col">Participants</th>
-                            <th scope="col" style="width: 20%;">Remarks</th>
+                            <th scope="col" style="width: 15%;">Remarks</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -128,9 +130,9 @@ if ($event_master_id > 0) {
                             <tr>
                                 <td class="text-center"><?php echo (int) ($index + 1); ?></td>
                                 <td><?php echo sanitize($event_master['label'] ?: $event_master['name']); ?></td>
+                                <td class="fw-semibold"><?php echo sanitize($team_entry['team_name']); ?></td>
+                                <td><?php echo sanitize($team_entry['institution_name']); ?></td>
                                 <td>
-                                    <div class="fw-semibold"><?php echo sanitize($team_entry['team_name']); ?></div>
-                                    <div class="text-muted small mb-2"><?php echo sanitize($team_entry['institution_name']); ?></div>
                                     <?php $members = $team_members[(int) $team_entry['id']] ?? []; ?>
                                     <?php if (!$members): ?>
                                         <span class="text-muted">No participants recorded</span>
