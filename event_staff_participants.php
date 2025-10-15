@@ -14,26 +14,38 @@ if (!$user['event_id']) {
 
 $assigned_event_id = (int) $user['event_id'];
 $filters_session_key = 'event_staff_participants_filters';
+$allowed_statuses = ['draft', 'submitted', 'approved', 'rejected'];
 
 if ((int) get_param('reset', 0) === 1) {
     unset($_SESSION[$filters_session_key]);
     $search = '';
     $selected_institution_id = 0;
+    $status_filter = '';
 } else {
-    $has_filter_query = array_key_exists('institution_id', $_GET) || array_key_exists('q', $_GET);
+    $stored_filters = $_SESSION[$filters_session_key] ?? [];
+    $has_filter_query = array_key_exists('institution_id', $_GET)
+        || array_key_exists('q', $_GET)
+        || array_key_exists('status', $_GET);
 
     if ($has_filter_query) {
         $search = trim((string) get_param('q', ''));
-        $selected_institution_id = (int) get_param('institution_id', 0);
-        $_SESSION[$filters_session_key] = [
-            'search' => $search,
-            'institution_id' => $selected_institution_id,
-        ];
+        $selected_institution_id = max(0, (int) get_param('institution_id', 0));
+        $status_filter = trim((string) get_param('status', ''));
     } else {
-        $stored_filters = $_SESSION[$filters_session_key] ?? [];
         $search = trim((string) ($stored_filters['search'] ?? ''));
         $selected_institution_id = (int) ($stored_filters['institution_id'] ?? 0);
+        $status_filter = (string) ($stored_filters['status'] ?? '');
     }
+
+    if (!in_array($status_filter, $allowed_statuses, true)) {
+        $status_filter = '';
+    }
+
+    $_SESSION[$filters_session_key] = [
+        'search' => $search,
+        'institution_id' => $selected_institution_id,
+        'status' => $status_filter,
+    ];
 }
 
 // Load institutions that have participants registered for the assigned event.
@@ -72,6 +84,12 @@ if ($search !== '') {
     $types .= 's';
 }
 
+if ($status_filter !== '') {
+    $sql .= ' AND p.status = ?';
+    $params[] = $status_filter;
+    $types .= 's';
+}
+
 $sql .= ' GROUP BY p.id, p.name, p.gender, p.contact_number, p.status, p.chest_number, i.name';
 $sql .= ' ORDER BY p.name';
 
@@ -90,7 +108,7 @@ $stmt->close();
 <div class="card shadow-sm mb-4">
     <div class="card-body">
         <form method="get" class="row g-3 align-items-end">
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <label for="institution_id" class="form-label">Participating Institution</label>
                 <select name="institution_id" id="institution_id" class="form-select">
                     <option value="0">All Institutions</option>
@@ -101,11 +119,20 @@ $stmt->close();
                     <?php endforeach; ?>
                 </select>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <label for="participant_name" class="form-label">Participant Name</label>
                 <input type="text" name="q" id="participant_name" class="form-control" value="<?php echo sanitize($search); ?>" placeholder="Search by name">
             </div>
-            <div class="col-md-4 d-flex gap-2">
+            <div class="col-md-3">
+                <label for="status" class="form-label">Status</label>
+                <select name="status" id="status" class="form-select">
+                    <option value="">All Statuses</option>
+                    <?php foreach ($allowed_statuses as $status): ?>
+                        <option value="<?php echo $status; ?>" <?php echo $status === $status_filter ? 'selected' : ''; ?>><?php echo ucfirst($status); ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="col-md-3 d-flex gap-2 align-items-end">
                 <button type="submit" class="btn btn-primary">Apply Filters</button>
                 <a href="event_staff_participants.php?reset=1" class="btn btn-outline-secondary">Reset</a>
             </div>
