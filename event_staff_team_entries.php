@@ -15,9 +15,37 @@ if (!$user['event_id']) {
 }
 
 $assigned_event_id = (int) $user['event_id'];
-$selected_institution_id = (int) get_param('institution_id', 0);
-$status_filter = trim((string) get_param('status', ''));
 $allowed_statuses = ['pending', 'approved', 'rejected'];
+$filters_session_key = 'event_staff_team_entries_filters';
+
+if ((int) get_param('reset', 0) === 1) {
+    unset($_SESSION[$filters_session_key]);
+    $selected_institution_id = 0;
+    $status_filter = '';
+} else {
+    $stored_filters = $_SESSION[$filters_session_key] ?? [];
+
+    if (array_key_exists('institution_id', $_GET)) {
+        $selected_institution_id = max(0, (int) get_param('institution_id', 0));
+    } else {
+        $selected_institution_id = (int) ($stored_filters['institution_id'] ?? 0);
+    }
+
+    if (array_key_exists('status', $_GET)) {
+        $status_filter = trim((string) get_param('status', ''));
+    } else {
+        $status_filter = (string) ($stored_filters['status'] ?? '');
+    }
+
+    if (!in_array($status_filter, $allowed_statuses, true)) {
+        $status_filter = '';
+    }
+
+    $_SESSION[$filters_session_key] = [
+        'institution_id' => $selected_institution_id,
+        'status' => $status_filter,
+    ];
+}
 
 if (is_post()) {
     $action = post_param('action');
@@ -176,7 +204,7 @@ $error_message = get_flash('error');
             </div>
             <div class="col-md-4 d-flex gap-2">
                 <button type="submit" class="btn btn-primary">Apply Filters</button>
-                <a href="event_staff_team_entries.php" class="btn btn-outline-secondary">Reset</a>
+                <a href="event_staff_team_entries.php?reset=1" class="btn btn-outline-secondary">Reset</a>
             </div>
         </form>
     </div>
