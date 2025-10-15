@@ -46,18 +46,24 @@ if ($selected_institution_id <= 0 || !array_key_exists($selected_institution_id,
 $selected_institution = $institutions[$selected_institution_id];
 
 $participant_count = 0;
+$participant_event_count = 0;
 $participant_fees = 0.0;
 $stmt = $db->prepare(
-    "SELECT COUNT(DISTINCT pe.participant_id) AS participant_count, COALESCE(SUM(pe.fees), 0) AS total_fees
+    "SELECT
+        COUNT(DISTINCT pe.participant_id) AS participant_count,
+        COUNT(DISTINCT CASE WHEN em.event_type = 'Individual' THEN pe.event_master_id END) AS participant_event_count,
+        COALESCE(SUM(pe.fees), 0) AS total_fees
     FROM participant_events pe
     JOIN participants p ON p.id = pe.participant_id
+    JOIN event_master em ON em.id = pe.event_master_id
     WHERE p.institution_id = ? AND p.status IN ('submitted', 'approved')"
 );
 $stmt->bind_param('i', $selected_institution_id);
 $stmt->execute();
-$stmt->bind_result($participant_count_result, $participant_fees_result);
+$stmt->bind_result($participant_count_result, $participant_event_count_result, $participant_fees_result);
 if ($stmt->fetch()) {
     $participant_count = (int) $participant_count_result;
+    $participant_event_count = (int) $participant_event_count_result;
     $participant_fees = (float) $participant_fees_result;
 }
 $stmt->close();
@@ -167,20 +173,37 @@ $dues_cleared = $total_fee_due <= $fund_approved;
                     $fee_breakdown = [
                         [
                             'label' => 'Participant Fees',
-                            'count' => $participant_count,
-                            'count_label' => 'Participants',
+                            'counts' => [
+                                [
+                                    'value' => $participant_count,
+                                    'label' => 'Participants',
+                                ],
+                                [
+                                    'value' => $participant_event_count,
+                                    'label' => 'Events',
+                                ],
+                            ],
                             'amount' => $participant_fees,
+                            'link' => 'event_staff_report_institution_participants.php?report=individual&institution_id=' . (int) $selected_institution_id,
                         ],
                         [
                             'label' => 'Team Entry Fees',
-                            'count' => $team_entry_count,
-                            'count_label' => 'Teams',
+                            'counts' => [
+                                [
+                                    'value' => $team_entry_count,
+                                    'label' => 'Teams',
+                                ],
+                            ],
                             'amount' => $team_entry_fees,
                         ],
                         [
                             'label' => 'Institution Event Fees',
-                            'count' => $institution_event_count,
-                            'count_label' => 'Events',
+                            'counts' => [
+                                [
+                                    'value' => $institution_event_count,
+                                    'label' => 'Events',
+                                ],
+                            ],
                             'amount' => $institution_event_fees,
                         ],
                     ];
@@ -188,8 +211,21 @@ $dues_cleared = $total_fee_due <= $fund_approved;
                 <?php foreach ($fee_breakdown as $item): ?>
                     <div class="d-flex justify-content-between py-2 border-bottom">
                         <div>
-                            <span class="d-block"><?php echo sanitize($item['label']); ?></span>
-                            <span class="small text-muted"><?php echo number_format((int) $item['count']); ?> <?php echo sanitize($item['count_label']); ?></span>
+                            <span class="d-block">
+                                <?php if (!empty($item['link'])): ?>
+                                    <a href="<?php echo sanitize($item['link']); ?>" target="_blank" rel="noopener noreferrer" class="text-decoration-none">
+                                        <?php echo sanitize($item['label']); ?>
+                                    </a>
+                                <?php else: ?>
+                                    <?php echo sanitize($item['label']); ?>
+                                <?php endif; ?>
+                            </span>
+                            <span class="small text-muted">
+                                <?php foreach ($item['counts'] as $index => $count): ?>
+                                    <?php if ($index > 0): ?>&middot; <?php endif; ?>
+                                    <?php echo number_format((int) $count['value']); ?> <?php echo sanitize($count['label']); ?>
+                                <?php endforeach; ?>
+                            </span>
                         </div>
                         <span class="fw-semibold">₹<?php echo number_format((float) $item['amount'], 2); ?></span>
                     </div>
