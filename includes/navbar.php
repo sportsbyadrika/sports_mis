@@ -38,6 +38,12 @@
                     <li class="nav-item"><a class="nav-link" href="institution_event_registrations.php">Institution Events</a></li>
                     <li class="nav-item"><a class="nav-link" href="event_staff_fund_transfers.php">Fund Transfers</a></li>
                     <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="eventStaffResults" role="button" data-bs-toggle="dropdown" aria-expanded="false">Result</a>
+                        <ul class="dropdown-menu" aria-labelledby="eventStaffResults">
+                            <li><a class="dropdown-item" href="result_individual_events.php">Individual Result Entry</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="eventStaffReports" role="button" data-bs-toggle="dropdown" aria-expanded="false">Reports</a>
                         <ul class="dropdown-menu" aria-labelledby="eventStaffReports">
                             <li><a class="dropdown-item" href="event_staff_report_institution_summary.php">Institution Wise Count</a></li>
