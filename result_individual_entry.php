@@ -280,7 +280,11 @@ $flash_error = get_flash('error');
                         <?php foreach ($participants as $index => $participant): ?>
                             <?php
                             $form_id = 'participant-result-form-' . (int) $participant['id'];
-                            $current_result = $participant['result'] ?? 'participant';
+                            $raw_result_value = strtolower(trim((string) ($participant['result'] ?? '')));
+                            $has_saved_result = $raw_result_value !== '' && array_key_exists($raw_result_value, $participant_result_options);
+                            $saved_result_label = $has_saved_result ? (string) $participant_result_options[$raw_result_value]['label'] : '';
+
+                            $current_result = $has_saved_result ? $raw_result_value : 'participant';
                             if (!array_key_exists($current_result, $participant_result_options)) {
                                 $current_result = 'participant';
                             }
@@ -296,6 +300,9 @@ $flash_error = get_flash('error');
                                 <td><?php echo sanitize($participant['institution_name']); ?></td>
                                 <td><?php echo sanitize($participant['gender']); ?></td>
                                 <td>
+                                    <?php if ($saved_result_label !== ''): ?>
+                                        <div class="text-muted small mb-1">Current Result: <span class="fw-semibold"><?php echo sanitize($saved_result_label); ?></span></div>
+                                    <?php endif; ?>
                                     <select name="participant_result" class="form-select form-select-sm" form="<?php echo $form_id; ?>">
                                         <?php foreach ($participant_result_options as $value => $option): ?>
                                             <option value="<?php echo $value; ?>" <?php echo $current_result === $value ? 'selected' : ''; ?>><?php echo sanitize($option['label']); ?></option>
