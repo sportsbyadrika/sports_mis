@@ -14,25 +14,29 @@ if (!$user['event_id']) {
 
 $assigned_event_id = (int) $user['event_id'];
 
-$sql = "SELECT em.id, em.name, em.label, em.gender, ac.name AS age_category,
-               COUNT(DISTINCT CASE WHEN p.status = 'approved' THEN p.id END) AS approved_participants,
-               COUNT(DISTINCT CASE WHEN ier.result IS NOT NULL AND ier.result <> '' THEN ier.participant_id END) AS results_updated,
-               COALESCE(ers.status, 'pending') AS result_status
-        FROM event_master em
-        INNER JOIN age_categories ac ON ac.id = em.age_category_id
-        LEFT JOIN participant_events pe ON pe.event_master_id = em.id
-        LEFT JOIN participants p ON p.id = pe.participant_id
-        LEFT JOIN individual_event_results ier ON ier.event_master_id = em.id AND ier.participant_id = pe.participant_id
-        LEFT JOIN individual_event_result_statuses ers ON ers.event_master_id = em.id
-        WHERE em.event_id = ? AND em.event_type = 'Individual'
-        GROUP BY em.id, em.name, em.label, em.gender, ac.name, ers.status
-        ORDER BY ac.name, em.label, em.name";
+$age_category_stmt = $db->prepare("SELECT DISTINCT ac.id, ac.name
+    FROM event_master em
+    INNER JOIN age_categories ac ON ac.id = em.age_category_id
+    WHERE em.event_id = ? AND em.event_type = 'Individual'
+    ORDER BY ac.name");
 
-$stmt = $db->prepare($sql);
-$stmt->bind_param('i', $assigned_event_id);
-$stmt->execute();
-$events = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
-$stmt->close();
+$age_categories = [];
+if ($age_category_stmt) {
+    $age_category_stmt->bind_param('i', $assigned_event_id);
+    $age_category_stmt->execute();
+    $age_categories = $age_category_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $age_category_stmt->close();
+}
+
+$selected_age_category_id = null;
+if ($age_categories) {
+    $default_age_category_id = (int) ($age_categories[0]['id'] ?? 0);
+    $selected_age_category_id = (int) get_param('age_category_id', $default_age_category_id);
+    $age_category_ids = array_column($age_categories, 'id');
+    if (!in_array($selected_age_category_id, array_map('intval', $age_category_ids), true)) {
+        $selected_age_category_id = $default_age_category_id;
+    }
+}
 
 $status_badges = [
     'pending' => 'secondary',
@@ -45,6 +49,39 @@ $status_labels = [
     'entry' => 'Entry',
     'published' => 'Published',
 ];
+
+$status_keys = array_keys($status_labels);
+$default_status_key = $status_keys[0] ?? 'pending';
+$selected_status = strtolower((string) get_param('result_status', $default_status_key));
+if (!array_key_exists($selected_status, $status_labels)) {
+    $selected_status = $default_status_key;
+}
+
+$events = [];
+
+if ($selected_age_category_id !== null) {
+    $sql = "SELECT em.id, em.name, em.label, em.gender, ac.name AS age_category,
+                   COUNT(DISTINCT CASE WHEN p.status = 'approved' THEN p.id END) AS approved_participants,
+                   COUNT(DISTINCT CASE WHEN ier.result IS NOT NULL AND ier.result <> '' THEN ier.participant_id END) AS results_updated,
+                   COALESCE(ers.status, 'pending') AS result_status
+            FROM event_master em
+            INNER JOIN age_categories ac ON ac.id = em.age_category_id
+            LEFT JOIN participant_events pe ON pe.event_master_id = em.id
+            LEFT JOIN participants p ON p.id = pe.participant_id
+            LEFT JOIN individual_event_results ier ON ier.event_master_id = em.id AND ier.participant_id = pe.participant_id
+            LEFT JOIN individual_event_result_statuses ers ON ers.event_master_id = em.id
+            WHERE em.event_id = ? AND em.event_type = 'Individual'
+                AND em.age_category_id = ?
+                AND COALESCE(ers.status, 'pending') = ?
+            GROUP BY em.id, em.name, em.label, em.gender, ac.name, ers.status
+            ORDER BY ac.name, em.label, em.name";
+
+    $stmt = $db->prepare($sql);
+    $stmt->bind_param('iis', $assigned_event_id, $selected_age_category_id, $selected_status);
+    $stmt->execute();
+    $events = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+}
 ?>
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
@@ -54,9 +91,38 @@ $status_labels = [
 </div>
 <div class="card shadow-sm">
     <div class="card-body">
-        <?php if (count($events) === 0): ?>
+        <?php if (!$age_categories): ?>
             <p class="mb-0 text-muted">No individual events are configured for result entry.</p>
         <?php else: ?>
+            <form method="get" class="row row-cols-1 row-cols-md-4 g-3 align-items-end mb-4">
+                <div class="col">
+                    <label for="age_category_id" class="form-label">Age Category</label>
+                    <select id="age_category_id" name="age_category_id" class="form-select">
+                        <?php foreach ($age_categories as $category): ?>
+                            <?php $category_id = (int) $category['id']; ?>
+                            <option value="<?php echo $category_id; ?>" <?php echo $category_id === $selected_age_category_id ? 'selected' : ''; ?>>
+                                <?php echo sanitize($category['name']); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col">
+                    <label for="result_status" class="form-label">Status</label>
+                    <select id="result_status" name="result_status" class="form-select">
+                        <?php foreach ($status_labels as $status_key => $status_label): ?>
+                            <option value="<?php echo sanitize($status_key); ?>" <?php echo $status_key === $selected_status ? 'selected' : ''; ?>>
+                                <?php echo sanitize($status_label); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-primary">Apply Filters</button>
+                </div>
+            </form>
+            <?php if (count($events) === 0): ?>
+                <p class="mb-0 text-muted">No individual events match the selected filters.</p>
+            <?php else: ?>
             <div class="table-responsive">
                 <table class="table table-striped align-middle">
                     <thead>
@@ -106,6 +172,7 @@ $status_labels = [
                     </tbody>
                 </table>
             </div>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 </div>
