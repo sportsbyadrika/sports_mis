@@ -10,7 +10,13 @@ function sanitize(string $value): string
 
 function redirect(string $path): void
 {
-    header('Location: ' . $path);
+    if (!headers_sent()) {
+        header('Location: ' . $path);
+        exit;
+    }
+
+    echo '<script>window.location.href = ' . json_encode($path) . ';</script>';
+    echo '<noscript><meta http-equiv="refresh" content="0;url=' . htmlspecialchars($path, ENT_QUOTES, 'UTF-8') . '"></noscript>';
     exit;
 }
 
