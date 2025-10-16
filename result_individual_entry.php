@@ -43,14 +43,77 @@ $result_status_options = [
     'published' => 'Published',
 ];
 
-$participant_result_options = [
-    'participant' => 'Participant',
-    'first_place' => 'First Place',
-    'second_place' => 'Second Place',
-    'third_place' => 'Third Place',
-    'absent' => 'Absent',
-    'withheld' => 'Withheld',
+$default_result_options = [
+    'participant' => [
+        'label' => 'Participant',
+        'individual_points' => 0,
+        'team_points' => 0,
+    ],
+    'first_place' => [
+        'label' => 'First Place',
+        'individual_points' => 0,
+        'team_points' => 0,
+    ],
+    'second_place' => [
+        'label' => 'Second Place',
+        'individual_points' => 0,
+        'team_points' => 0,
+    ],
+    'third_place' => [
+        'label' => 'Third Place',
+        'individual_points' => 0,
+        'team_points' => 0,
+    ],
+    'absent' => [
+        'label' => 'Absent',
+        'individual_points' => 0,
+        'team_points' => 0,
+    ],
+    'withheld' => [
+        'label' => 'Withheld',
+        'individual_points' => 0,
+        'team_points' => 0,
+    ],
 ];
+
+$result_master_rows = [];
+$result_master_stmt = $db->prepare("SELECT result_key, result_label, individual_points, team_points FROM result_master_settings WHERE event_id = ? ORDER BY sort_order ASC, id ASC");
+if ($result_master_stmt) {
+    $result_master_stmt->bind_param('i', $assigned_event_id);
+    $result_master_stmt->execute();
+    $result_master_rows = $result_master_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $result_master_stmt->close();
+}
+
+$participant_result_options = [];
+
+if ($result_master_rows) {
+    foreach ($result_master_rows as $row) {
+        $key = strtolower(trim((string) ($row['result_key'] ?? '')));
+        if (!array_key_exists($key, $default_result_options)) {
+            continue;
+        }
+
+        $label = trim((string) ($row['result_label'] ?? ''));
+        if ($label === '') {
+            $label = $default_result_options[$key]['label'];
+        }
+
+        $participant_result_options[$key] = [
+            'label' => $label,
+            'individual_points' => (float) ($row['individual_points'] ?? 0),
+            'team_points' => (float) ($row['team_points'] ?? 0),
+        ];
+    }
+
+    foreach ($default_result_options as $key => $default_option) {
+        if (!isset($participant_result_options[$key])) {
+            $participant_result_options[$key] = $default_option;
+        }
+    }
+} else {
+    $participant_result_options = $default_result_options;
+}
 
 $errors = [];
 
@@ -78,12 +141,12 @@ if (is_post()) {
     } elseif ($action === 'update_participant') {
         $participant_id = (int) post_param('participant_id');
         $selected_result = strtolower(trim((string) post_param('participant_result')));
-        $individual_points = round((float) post_param('individual_points', 0), 2);
-        $team_points = round((float) post_param('team_points', 0), 2);
-
         if (!array_key_exists($selected_result, $participant_result_options)) {
             $errors[] = 'Select a valid result for the participant.';
         } else {
+            $individual_points = round((float) ($participant_result_options[$selected_result]['individual_points'] ?? 0), 2);
+            $team_points = round((float) ($participant_result_options[$selected_result]['team_points'] ?? 0), 2);
+
             $participant_check = $db->prepare("SELECT p.id
                 FROM participant_events pe
                 INNER JOIN participants p ON p.id = pe.participant_id
@@ -119,7 +182,7 @@ $status_stmt->execute();
 $current_status = $status_stmt->get_result()->fetch_assoc()['status'] ?? 'pending';
 $status_stmt->close();
 
-$participants_stmt = $db->prepare("SELECT p.id, p.name, p.gender, i.name AS institution_name, res.result, res.individual_points, res.team_points
+$participants_stmt = $db->prepare("SELECT p.id, p.name, p.gender, p.chest_number, i.name AS institution_name, res.result
     FROM participant_events pe
     INNER JOIN participants p ON p.id = pe.participant_id
     INNER JOIN institutions i ON i.id = p.institution_id
@@ -199,12 +262,12 @@ $flash_error = get_flash('error');
             <table class="table table-striped align-middle">
                 <thead>
                     <tr>
+                        <th scope="col">Sl No</th>
+                        <th scope="col">Chest No</th>
                         <th scope="col">Participant</th>
                         <th scope="col">Institution</th>
                         <th scope="col">Gender</th>
                         <th scope="col">Result</th>
-                        <th scope="col">Individual Score</th>
-                        <th scope="col">Team Score</th>
                         <th scope="col" class="text-end">Actions</th>
                     </tr>
                 </thead>
@@ -214,9 +277,17 @@ $flash_error = get_flash('error');
                             <td colspan="7" class="text-center text-muted py-4">No approved participants available for this event.</td>
                         </tr>
                     <?php else: ?>
-                        <?php foreach ($participants as $participant): ?>
-                            <?php $form_id = 'participant-result-form-' . (int) $participant['id']; ?>
+                        <?php foreach ($participants as $index => $participant): ?>
+                            <?php
+                            $form_id = 'participant-result-form-' . (int) $participant['id'];
+                            $current_result = $participant['result'] ?? 'participant';
+                            if (!array_key_exists($current_result, $participant_result_options)) {
+                                $current_result = 'participant';
+                            }
+                            ?>
                             <tr>
+                                <td><?php echo $index + 1; ?></td>
+                                <td><?php echo $participant['chest_number'] !== null ? sanitize((string) $participant['chest_number']) : sanitize('N/A'); ?></td>
                                 <td>
                                     <?php echo sanitize($participant['name']); ?>
                                     <input type="hidden" name="form_action" value="update_participant" form="<?php echo $form_id; ?>">
@@ -226,16 +297,10 @@ $flash_error = get_flash('error');
                                 <td><?php echo sanitize($participant['gender']); ?></td>
                                 <td>
                                     <select name="participant_result" class="form-select form-select-sm" form="<?php echo $form_id; ?>">
-                                        <?php foreach ($participant_result_options as $value => $label): ?>
-                                            <option value="<?php echo $value; ?>" <?php echo ($participant['result'] ?? 'participant') === $value ? 'selected' : ''; ?>><?php echo sanitize($label); ?></option>
+                                        <?php foreach ($participant_result_options as $value => $option): ?>
+                                            <option value="<?php echo $value; ?>" <?php echo $current_result === $value ? 'selected' : ''; ?>><?php echo sanitize($option['label']); ?></option>
                                         <?php endforeach; ?>
                                     </select>
-                                </td>
-                                <td>
-                                    <input type="number" step="0.01" name="individual_points" class="form-control form-control-sm" value="<?php echo htmlspecialchars((string) ($participant['individual_points'] ?? '0'), ENT_QUOTES); ?>" form="<?php echo $form_id; ?>">
-                                </td>
-                                <td>
-                                    <input type="number" step="0.01" name="team_points" class="form-control form-control-sm" value="<?php echo htmlspecialchars((string) ($participant['team_points'] ?? '0'), ENT_QUOTES); ?>" form="<?php echo $form_id; ?>">
                                 </td>
                                 <td class="text-end">
                                     <button type="submit" class="btn btn-sm btn-outline-primary" form="<?php echo $form_id; ?>">Update</button>
