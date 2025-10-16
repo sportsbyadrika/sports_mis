@@ -204,6 +204,8 @@ foreach ($participants as $participant_row) {
     }
 }
 
+$results_badge_class = $results_updated_count === $total_participants ? 'bg-success' : 'bg-warning text-dark';
+
 $result_badge_classes = [
     'participant' => 'bg-secondary',
     'first_place' => 'bg-success',
@@ -283,7 +285,9 @@ $flash_error = get_flash('error');
             </div>
             <div class="col-md-3 col-sm-6">
                 <div class="text-muted small">Results Updated</div>
-                <div class="fw-semibold"><?php echo number_format($results_updated_count); ?></div>
+                <div class="fw-semibold">
+                    <span class="badge rounded-pill <?php echo sanitize($results_badge_class); ?>"><?php echo number_format($results_updated_count); ?></span>
+                </div>
             </div>
         </div>
         <?php $form_placeholders = []; ?>
