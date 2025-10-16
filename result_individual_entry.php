@@ -188,7 +188,7 @@ $participants_stmt = $db->prepare("SELECT p.id, p.name, p.gender, p.chest_number
     INNER JOIN institutions i ON i.id = p.institution_id
     LEFT JOIN individual_event_results res ON res.event_master_id = pe.event_master_id AND res.participant_id = p.id
     WHERE pe.event_master_id = ? AND p.status = 'approved'
-    ORDER BY p.name");
+    ORDER BY CAST(NULLIF(p.chest_number, '') AS UNSIGNED), p.chest_number, p.name");
 $participants_stmt->bind_param('i', $event_master_id);
 $participants_stmt->execute();
 $participants = $participants_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
