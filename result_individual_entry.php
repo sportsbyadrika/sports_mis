@@ -194,6 +194,25 @@ $participants_stmt->execute();
 $participants = $participants_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $participants_stmt->close();
 
+$total_participants = count($participants);
+$results_updated_count = 0;
+
+foreach ($participants as $participant_row) {
+    $raw_result_value = strtolower(trim((string) ($participant_row['result'] ?? '')));
+    if ($raw_result_value !== '' && array_key_exists($raw_result_value, $participant_result_options)) {
+        $results_updated_count++;
+    }
+}
+
+$result_badge_classes = [
+    'participant' => 'bg-secondary',
+    'first_place' => 'bg-success',
+    'second_place' => 'bg-primary',
+    'third_place' => 'bg-warning text-dark',
+    'absent' => 'bg-danger',
+    'withheld' => 'bg-dark',
+];
+
 $flash_success = get_flash('success');
 $flash_error = get_flash('error');
 ?>
@@ -257,6 +276,16 @@ $flash_error = get_flash('error');
 <div class="card shadow-sm">
     <div class="card-body">
         <h2 class="h6 mb-3">Approved Participants</h2>
+        <div class="row g-3 mb-3">
+            <div class="col-md-3 col-sm-6">
+                <div class="text-muted small">Total Approved Participants</div>
+                <div class="fw-semibold"><?php echo number_format($total_participants); ?></div>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <div class="text-muted small">Results Updated</div>
+                <div class="fw-semibold"><?php echo number_format($results_updated_count); ?></div>
+            </div>
+        </div>
         <?php $form_placeholders = []; ?>
         <div class="table-responsive">
             <table class="table table-striped align-middle">
@@ -267,14 +296,15 @@ $flash_error = get_flash('error');
                         <th scope="col">Participant</th>
                         <th scope="col">Institution</th>
                         <th scope="col">Gender</th>
-                        <th scope="col">Result</th>
+                        <th scope="col">Saved Result</th>
+                        <th scope="col">Update Result</th>
                         <th scope="col" class="text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (!$participants): ?>
                         <tr>
-                            <td colspan="7" class="text-center text-muted py-4">No approved participants available for this event.</td>
+                            <td colspan="8" class="text-center text-muted py-4">No approved participants available for this event.</td>
                         </tr>
                     <?php else: ?>
                         <?php foreach ($participants as $index => $participant): ?>
@@ -301,8 +331,15 @@ $flash_error = get_flash('error');
                                 <td><?php echo sanitize($participant['gender']); ?></td>
                                 <td>
                                     <?php if ($saved_result_label !== ''): ?>
-                                        <div class="text-muted small mb-1">Current Result: <span class="fw-semibold"><?php echo sanitize($saved_result_label); ?></span></div>
+                                        <?php
+                                        $badge_class = $result_badge_classes[$raw_result_value] ?? 'bg-secondary';
+                                        ?>
+                                        <span class="badge rounded-pill <?php echo sanitize($badge_class); ?>"><?php echo sanitize($saved_result_label); ?></span>
+                                    <?php else: ?>
+                                        <span class="text-muted small">Not updated</span>
                                     <?php endif; ?>
+                                </td>
+                                <td>
                                     <select name="participant_result" class="form-select form-select-sm" form="<?php echo $form_id; ?>">
                                         <?php foreach ($participant_result_options as $value => $option): ?>
                                             <option value="<?php echo $value; ?>" <?php echo $current_result === $value ? 'selected' : ''; ?>><?php echo sanitize($option['label']); ?></option>
