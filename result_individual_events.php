@@ -16,11 +16,13 @@ $assigned_event_id = (int) $user['event_id'];
 
 $sql = "SELECT em.id, em.name, em.label, em.gender, ac.name AS age_category,
                COUNT(DISTINCT CASE WHEN p.status = 'approved' THEN p.id END) AS approved_participants,
+               COUNT(DISTINCT CASE WHEN ier.result IS NOT NULL AND ier.result <> '' THEN ier.participant_id END) AS results_updated,
                COALESCE(ers.status, 'pending') AS result_status
         FROM event_master em
         INNER JOIN age_categories ac ON ac.id = em.age_category_id
         LEFT JOIN participant_events pe ON pe.event_master_id = em.id
         LEFT JOIN participants p ON p.id = pe.participant_id
+        LEFT JOIN individual_event_results ier ON ier.event_master_id = em.id AND ier.participant_id = pe.participant_id
         LEFT JOIN individual_event_result_statuses ers ON ers.event_master_id = em.id
         WHERE em.event_id = ? AND em.event_type = 'Individual'
         GROUP BY em.id, em.name, em.label, em.gender, ac.name, ers.status
@@ -64,6 +66,7 @@ $status_labels = [
                             <th>Event Label</th>
                             <th>Gender</th>
                             <th class="text-center">Approved Participants</th>
+                            <th class="text-center">Results Updated</th>
                             <th>Status</th>
                             <th class="text-end">Actions</th>
                         </tr>
@@ -79,6 +82,15 @@ $status_labels = [
                                 </td>
                                 <td><?php echo sanitize($event['gender']); ?></td>
                                 <td class="text-center"><?php echo (int) $event['approved_participants']; ?></td>
+                                <td class="text-center">
+                                    <?php
+                                    $results_updated = (int) $event['results_updated'];
+                                    $results_badge_class = $results_updated === (int) $event['approved_participants']
+                                        ? 'bg-success'
+                                        : 'bg-warning text-dark';
+                                    ?>
+                                    <span class="badge <?php echo $results_badge_class; ?>"><?php echo $results_updated; ?></span>
+                                </td>
                                 <td>
                                     <span class="badge bg-<?php echo $status_badges[$status_key] ?? 'secondary'; ?>">
                                         <?php echo sanitize($status_labels[$status_key] ?? 'Pending'); ?>
