@@ -122,6 +122,7 @@ if ($event_master_id > 0) {
                         <tr>
                             <th scope="col" class="text-center" style="width: 60px;">#</th>
                             <th scope="col" style="width: 20%;">Event Label</th>
+                            <th scope="col" style="width: 12%;">Team Letter</th>
                             <th scope="col" style="width: 20%;">Team</th>
                             <th scope="col" style="width: 20%;">Institution</th>
                             <th scope="col">Participants</th>
@@ -133,6 +134,7 @@ if ($event_master_id > 0) {
                             <tr>
                                 <td class="text-center"><?php echo (int) ($index + 1); ?></td>
                                 <td><?php echo sanitize($event_master['label'] ?: $event_master['name']); ?></td>
+                                <td class="text-center fw-semibold"><?php echo sanitize($team_entry['team_name']); ?></td>
                                 <td class="fw-semibold"><?php echo sanitize($team_entry['team_name']); ?></td>
                                 <td><?php echo sanitize($team_entry['institution_name']); ?></td>
                                 <td>
