@@ -98,21 +98,13 @@ foreach ($participants as $participant) {
         continue;
     }
 
-    $position_label = 'Participation';
+    if ($certificate_type === 'participation' && $is_merit_result) {
+        continue;
+    }
+
+    $position_label = '';
     if ($certificate_type === 'merit') {
         $position_label = $participant_result_options[$result_key]['label'] ?? ucfirst(str_replace('_', ' ', $result_key));
-    }
-
-    if ($certificate_type === 'participation' && $is_merit_result) {
-        $position_label = 'Participation';
-    }
-
-    if ($certificate_type === 'participation' && !$is_merit_result) {
-        $position_label = 'Participation';
-    }
-
-    if ($certificate_type === 'merit' && !$position_label) {
-        $position_label = 'Merit';
     }
 
     $certificates[] = [
@@ -124,7 +116,7 @@ foreach ($participants as $participant) {
 
 if (!$certificates) {
     $title = $certificate_type === 'merit' ? 'Certificates of Merit' : 'Certificates of Participation';
-    echo '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>' . sanitize($title) . '</title><style>body{font-family:Arial,sans-serif;background:#fff;color:#000;margin:0;padding:2rem;}main{max-width:720px;margin:0 auto;}h1{font-size:1.75rem;margin-bottom:1rem;}p{font-size:1rem;line-height:1.5;}</style></head><body><main><h1>' . sanitize($title) . '</h1><p>No certificates are available to generate for this event.</p></main></body></html>';
+    echo '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>' . sanitize($title) . '</title><style>body{font-family:Arial,sans-serif;background:#fff;color:#000;margin:0;padding:2rem;}main{max-width:720px;margin:0 auto;}p{font-size:1rem;line-height:1.5;}</style></head><body><main><p>No certificates are available to generate for this event.</p></main></body></html>';
     return;
 }
 
@@ -132,13 +124,11 @@ $event_label = trim((string) ($event_details['label'] ?: $event_details['name'] 
 $event_label = $event_label !== '' ? $event_label : ($event_details['event_name'] ?? '');
 $event_label = (string) $event_label;
 
-$certificate_heading = $certificate_type === 'merit' ? 'Certificate of Merit' : 'Certificate of Participation';
-
 ?><!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title><?php echo sanitize($certificate_heading); ?></title>
+    <title>South Zone Sahodaya Complex 2025 Certificates</title>
     <style>
         :root {
             color-scheme: only light;
@@ -170,12 +160,10 @@ $certificate_heading = $certificate_type === 'merit' ? 'Certificate of Merit' : 
             width: 100%;
             padding: 12cm 2cm 2cm;
             text-align: center;
-        }
-        .certificate-title {
-            font-size: 2.2rem;
-            letter-spacing: 0.1rem;
-            text-transform: uppercase;
-            margin-bottom: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
         }
         .certificate-text {
             font-size: 1.5rem;
@@ -185,6 +173,20 @@ $certificate_heading = $certificate_type === 'merit' ? 'Certificate of Merit' : 
         }
         .participant-name {
             font-weight: bold;
+            display: inline-block;
+        }
+        .institution-name {
+            font-weight: bold;
+            display: inline-block;
+        }
+        .event-name {
+            font-weight: bold;
+            display: inline-block;
+        }
+        .achievement-label {
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
         }
         @media print {
             body {
@@ -205,13 +207,16 @@ $certificate_heading = $certificate_type === 'merit' ? 'Certificate of Merit' : 
 <?php foreach ($certificates as $certificate): ?>
     <section class="certificate-page">
         <div class="certificate-content">
-            <div class="certificate-title"><?php echo sanitize($certificate_heading); ?></div>
             <p class="certificate-text">
                 This Certifies that <span class="participant-name"><?php echo sanitize($certificate['name']); ?></span>
-                of <?php echo sanitize($certificate['institution']); ?> achieved the
-                <?php echo sanitize($certificate['position_label']); ?> in the
-                <?php echo sanitize($event_label); ?> event at the South Zone Sahodaya Complex 2025 conducted at
-                Sree Padam Stadium, Attingal, from October 23rd to 25th, 2025.
+                of <span class="institution-name"><?php echo sanitize($certificate['institution']); ?></span>
+                participated in the the South Zone Sahodaya Complex 2025 conducted at
+                Sree Padam Stadium, Attingal, from October 23rd to 25th, 2025 in the
+                <span class="event-name"><?php echo sanitize($event_label); ?></span> event.
+                <?php if ($certificate_type === 'merit' && $certificate['position_label']): ?>
+                    <br><br>
+                    <span class="achievement-label">Achieved: <?php echo sanitize($certificate['position_label']); ?></span>
+                <?php endif; ?>
             </p>
         </div>
     </section>
