@@ -41,6 +41,7 @@
                         <a class="nav-link dropdown-toggle" href="#" id="eventStaffResults" role="button" data-bs-toggle="dropdown" aria-expanded="false">Result</a>
                         <ul class="dropdown-menu" aria-labelledby="eventStaffResults">
                             <li><a class="dropdown-item" href="result_individual_events.php">Individual Result Entry</a></li>
+                            <li><a class="dropdown-item" href="result_team_events.php">Team Result Entry</a></li>
                         </ul>
                     </li>
                     <li class="nav-item dropdown">
