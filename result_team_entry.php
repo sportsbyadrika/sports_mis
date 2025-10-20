@@ -263,7 +263,27 @@ $flash_error = get_flash('error');
         <h1 class="h4 mb-0">Update Team Results</h1>
         <p class="text-muted mb-0">Manage team placements and scores for the selected event.</p>
     </div>
-    <a href="result_team_events.php" class="btn btn-outline-secondary">Back to Team Events</a>
+    <div class="d-flex align-items-center gap-2">
+        <a
+            href="result_team_certificates.php?event_master_id=<?php echo (int) $event_master_id; ?>&amp;type=merit"
+            class="btn btn-outline-success"
+            target="_blank"
+            rel="noopener"
+            title="Generate certificates of merit"
+        >
+            <i class="bi bi-award"></i>
+        </a>
+        <a
+            href="result_team_certificates.php?event_master_id=<?php echo (int) $event_master_id; ?>&amp;type=participation"
+            class="btn btn-outline-primary"
+            target="_blank"
+            rel="noopener"
+            title="Generate certificates of participation"
+        >
+            <i class="bi bi-people"></i>
+        </a>
+        <a href="result_team_events.php" class="btn btn-outline-secondary">Back to Team Events</a>
+    </div>
 </div>
 <?php if ($flash_success): ?>
     <div class="alert alert-success"><?php echo sanitize($flash_success); ?></div>
