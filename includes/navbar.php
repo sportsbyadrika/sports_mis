@@ -42,6 +42,7 @@
                         <ul class="dropdown-menu" aria-labelledby="eventStaffResults">
                             <li><a class="dropdown-item" href="result_individual_events.php">Individual Result Entry</a></li>
                             <li><a class="dropdown-item" href="result_team_events.php">Team Result Entry</a></li>
+                            <li><a class="dropdown-item" href="result_institution_points.php">Institution Points Summary</a></li>
                         </ul>
                     </li>
                     <li class="nav-item dropdown">
