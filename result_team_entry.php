@@ -154,6 +154,13 @@ if (is_post()) {
     } elseif ($action === 'update_team_entry') {
         $team_entry_id = (int) post_param('team_entry_id');
         $selected_result = strtolower(trim((string) post_param('team_result')));
+        $team_score_input = post_param('team_score');
+        $team_score = $team_score_input !== null ? trim((string) $team_score_input) : '';
+        if ($team_score === '') {
+            $team_score = null;
+        } else {
+            $team_score = mb_substr($team_score, 0, 255);
+        }
         if (!array_key_exists($selected_result, $team_result_options)) {
             $errors[] = 'Select a valid result for the team.';
         } else {
@@ -167,11 +174,11 @@ if (is_post()) {
                 $errors[] = 'The selected team is not linked with this event.';
             } else {
                 $team_points = round((float) ($team_result_options[$selected_result]['team_points'] ?? 0), 2);
-                $result_stmt = $db->prepare("INSERT INTO team_event_results (event_master_id, team_entry_id, result, team_points, updated_by)
-                    VALUES (?, ?, ?, ?, ?)
-                    ON DUPLICATE KEY UPDATE result = VALUES(result), team_points = VALUES(team_points), updated_by = VALUES(updated_by)");
+                $result_stmt = $db->prepare("INSERT INTO team_event_results (event_master_id, team_entry_id, result, team_points, team_score, updated_by)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE result = VALUES(result), team_points = VALUES(team_points), team_score = VALUES(team_score), updated_by = VALUES(updated_by)");
                 $updated_by = (int) $user['id'];
-                $result_stmt->bind_param('iisdi', $event_master_id, $team_entry_id, $selected_result, $team_points, $updated_by);
+                $result_stmt->bind_param('iisdsi', $event_master_id, $team_entry_id, $selected_result, $team_points, $team_score, $updated_by);
                 if ($result_stmt->execute()) {
                     set_flash('success', 'Team result updated successfully.');
                     redirect('result_team_entry.php?event_master_id=' . $event_master_id);
@@ -190,7 +197,7 @@ $status_stmt->execute();
 $current_status = $status_stmt->get_result()->fetch_assoc()['status'] ?? 'pending';
 $status_stmt->close();
 
-$team_entries_stmt = $db->prepare("SELECT te.id, te.team_name, i.name AS institution_name, res.result
+$team_entries_stmt = $db->prepare("SELECT te.id, te.team_name, i.name AS institution_name, res.result, res.team_score
     FROM team_entries te
     INNER JOIN institutions i ON i.id = te.institution_id
     LEFT JOIN team_event_results res ON res.event_master_id = te.event_master_id AND res.team_entry_id = te.id
@@ -360,7 +367,7 @@ $flash_error = get_flash('error');
                         <th scope="col">Institution</th>
                         <th scope="col">Participants</th>
                         <th scope="col">Saved Result</th>
-                        <th scope="col">Update Result</th>
+                        <th scope="col">Update Result &amp; Score</th>
                         <th scope="col" class="text-end">Actions</th>
                     </tr>
                 </thead>
@@ -376,10 +383,12 @@ $flash_error = get_flash('error');
                             $raw_result_value = strtolower(trim((string) ($team_entry['result'] ?? '')));
                             $has_saved_result = $raw_result_value !== '' && array_key_exists($raw_result_value, $team_result_options);
                             $saved_result_label = $has_saved_result ? (string) $team_result_options[$raw_result_value]['label'] : '';
+                            $saved_score = trim((string) ($team_entry['team_score'] ?? ''));
                             $current_result = $has_saved_result ? $raw_result_value : 'participant';
                             if (!array_key_exists($current_result, $team_result_options)) {
                                 $current_result = 'participant';
                             }
+                            $current_score = $saved_score;
                             $members = $team_members[(int) $team_entry['id']] ?? [];
                             ?>
                             <tr>
@@ -408,16 +417,33 @@ $flash_error = get_flash('error');
                                     <?php if ($saved_result_label !== ''): ?>
                                         <?php $badge_class = $result_badge_classes[$raw_result_value] ?? 'bg-secondary'; ?>
                                         <span class="badge rounded-pill <?php echo sanitize($badge_class); ?>"><?php echo sanitize($saved_result_label); ?></span>
+                                        <?php if ($saved_score !== ''): ?>
+                                            <div class="small text-muted mt-1">Score: <?php echo sanitize($saved_score); ?></div>
+                                        <?php endif; ?>
                                     <?php else: ?>
                                         <span class="text-muted small">Not updated</span>
+                                        <?php if ($saved_score !== ''): ?>
+                                            <div class="small text-muted">Score: <?php echo sanitize($saved_score); ?></div>
+                                        <?php endif; ?>
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <select name="team_result" class="form-select form-select-sm" form="<?php echo $form_id; ?>">
-                                        <?php foreach ($team_result_options as $value => $option): ?>
-                                            <option value="<?php echo $value; ?>" <?php echo $current_result === $value ? 'selected' : ''; ?>><?php echo sanitize($option['label']); ?></option>
-                                        <?php endforeach; ?>
-                                    </select>
+                                    <div class="mb-2">
+                                        <select name="team_result" class="form-select form-select-sm" form="<?php echo $form_id; ?>">
+                                            <?php foreach ($team_result_options as $value => $option): ?>
+                                                <option value="<?php echo $value; ?>" <?php echo $current_result === $value ? 'selected' : ''; ?>><?php echo sanitize($option['label']); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                    <input
+                                        type="text"
+                                        name="team_score"
+                                        value="<?php echo sanitize($current_score); ?>"
+                                        class="form-control form-control-sm"
+                                        placeholder="Enter score"
+                                        maxlength="255"
+                                        form="<?php echo $form_id; ?>"
+                                    >
                                 </td>
                                 <td class="text-end">
                                     <button type="submit" class="btn btn-sm btn-outline-primary" form="<?php echo $form_id; ?>">Update</button>
