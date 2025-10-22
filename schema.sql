@@ -225,6 +225,7 @@ CREATE TABLE team_event_results (
     team_entry_id INT NOT NULL,
     result ENUM('participant', 'first_place', 'second_place', 'third_place', 'fourth_place', 'fifth_place', 'sixth_place', 'seventh_place', 'eighth_place', 'absent', 'withheld') NOT NULL DEFAULT 'participant',
     team_points DECIMAL(10,2) NOT NULL DEFAULT 0,
+    team_score VARCHAR(255) DEFAULT NULL,
     updated_by INT DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
