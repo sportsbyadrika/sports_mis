@@ -64,6 +64,31 @@ $default_result_options = [
         'individual_points' => 0,
         'team_points' => 0,
     ],
+    'fourth_place' => [
+        'label' => 'Fourth Place',
+        'individual_points' => 0,
+        'team_points' => 0,
+    ],
+    'fifth_place' => [
+        'label' => 'Fifth Place',
+        'individual_points' => 0,
+        'team_points' => 0,
+    ],
+    'sixth_place' => [
+        'label' => 'Sixth Place',
+        'individual_points' => 0,
+        'team_points' => 0,
+    ],
+    'seventh_place' => [
+        'label' => 'Seventh Place',
+        'individual_points' => 0,
+        'team_points' => 0,
+    ],
+    'eighth_place' => [
+        'label' => 'Eighth Place',
+        'individual_points' => 0,
+        'team_points' => 0,
+    ],
     'absent' => [
         'label' => 'Absent',
         'individual_points' => 0,
@@ -159,18 +184,30 @@ if (is_post()) {
             if (!$participant_exists) {
                 $errors[] = 'The selected participant is not linked with this event.';
             } else {
-                $result_stmt = $db->prepare("INSERT INTO individual_event_results (event_master_id, participant_id, result, individual_points, team_points, updated_by)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    ON DUPLICATE KEY UPDATE result = VALUES(result), individual_points = VALUES(individual_points), team_points = VALUES(team_points), updated_by = VALUES(updated_by)");
-                $updated_by = (int) $user['id'];
-                $result_stmt->bind_param('iisddi', $event_master_id, $participant_id, $selected_result, $individual_points, $team_points, $updated_by);
-                if ($result_stmt->execute()) {
-                    set_flash('success', 'Participant result updated successfully.');
-                    redirect('result_individual_entry.php?event_master_id=' . $event_master_id);
-                } else {
-                    $errors[] = 'Failed to update participant result. Please try again.';
+                $participant_score = trim((string) post_param('participant_score'));
+                if (mb_strlen($participant_score) > 100) {
+                    $errors[] = 'The score must not exceed 100 characters.';
                 }
-                $result_stmt->close();
+
+                if (!$errors) {
+                    $result_stmt = $db->prepare("INSERT INTO individual_event_results (event_master_id, participant_id, result, score, individual_points, team_points, updated_by)"
+                        . " VALUES (?, ?, ?, ?, ?, ?, ?)"
+                        . " ON DUPLICATE KEY UPDATE result = VALUES(result), score = VALUES(score), individual_points = VALUES(individual_points), team_points = VALUES(team_points), updated_by = VALUES(updated_by)");
+                }
+
+                if (!$errors && $result_stmt) {
+                    $updated_by = (int) $user['id'];
+                    $result_stmt->bind_param('iissddi', $event_master_id, $participant_id, $selected_result, $participant_score, $individual_points, $team_points, $updated_by);
+                    if ($result_stmt->execute()) {
+                        set_flash('success', 'Participant result updated successfully.');
+                        redirect('result_individual_entry.php?event_master_id=' . $event_master_id);
+                    } else {
+                        $errors[] = 'Failed to update participant result. Please try again.';
+                    }
+                    $result_stmt->close();
+                } elseif (!$errors) {
+                    $errors[] = 'Failed to prepare the participant result update. Please try again.';
+                }
             }
         }
     }
@@ -182,7 +219,7 @@ $status_stmt->execute();
 $current_status = $status_stmt->get_result()->fetch_assoc()['status'] ?? 'pending';
 $status_stmt->close();
 
-$participants_stmt = $db->prepare("SELECT p.id, p.name, p.gender, p.chest_number, i.name AS institution_name, res.result
+$participants_stmt = $db->prepare("SELECT p.id, p.name, p.gender, p.chest_number, i.name AS institution_name, res.result, res.score
     FROM participant_events pe
     INNER JOIN participants p ON p.id = pe.participant_id
     INNER JOIN institutions i ON i.id = p.institution_id
@@ -211,6 +248,11 @@ $result_badge_classes = [
     'first_place' => 'bg-success',
     'second_place' => 'bg-primary',
     'third_place' => 'bg-warning text-dark',
+    'fourth_place' => 'bg-info text-dark',
+    'fifth_place' => 'bg-info text-dark',
+    'sixth_place' => 'bg-info text-dark',
+    'seventh_place' => 'bg-info text-dark',
+    'eighth_place' => 'bg-info text-dark',
     'absent' => 'bg-danger',
     'withheld' => 'bg-dark',
 ];
@@ -321,14 +363,16 @@ $flash_error = get_flash('error');
                         <th scope="col">Institution</th>
                         <th scope="col">Gender</th>
                         <th scope="col">Saved Result</th>
+                        <th scope="col">Saved Score</th>
                         <th scope="col">Update Result</th>
+                        <th scope="col">Update Score</th>
                         <th scope="col" class="text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (!$participants): ?>
                         <tr>
-                            <td colspan="8" class="text-center text-muted py-4">No approved participants available for this event.</td>
+                            <td colspan="10" class="text-center text-muted py-4">No approved participants available for this event.</td>
                         </tr>
                     <?php else: ?>
                         <?php foreach ($participants as $index => $participant): ?>
@@ -337,6 +381,7 @@ $flash_error = get_flash('error');
                             $raw_result_value = strtolower(trim((string) ($participant['result'] ?? '')));
                             $has_saved_result = $raw_result_value !== '' && array_key_exists($raw_result_value, $participant_result_options);
                             $saved_result_label = $has_saved_result ? (string) $participant_result_options[$raw_result_value]['label'] : '';
+                            $saved_score = trim((string) ($participant['score'] ?? ''));
 
                             $current_result = $has_saved_result ? $raw_result_value : 'participant';
                             if (!array_key_exists($current_result, $participant_result_options)) {
@@ -364,11 +409,21 @@ $flash_error = get_flash('error');
                                     <?php endif; ?>
                                 </td>
                                 <td>
+                                    <?php if ($saved_score !== ''): ?>
+                                        <span class="fw-semibold"><?php echo sanitize($saved_score); ?></span>
+                                    <?php else: ?>
+                                        <span class="text-muted small">Not updated</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
                                     <select name="participant_result" class="form-select form-select-sm" form="<?php echo $form_id; ?>">
                                         <?php foreach ($participant_result_options as $value => $option): ?>
                                             <option value="<?php echo $value; ?>" <?php echo $current_result === $value ? 'selected' : ''; ?>><?php echo sanitize($option['label']); ?></option>
                                         <?php endforeach; ?>
                                     </select>
+                                </td>
+                                <td>
+                                    <input type="text" name="participant_score" maxlength="100" class="form-control form-control-sm" value="<?php echo sanitize($saved_score); ?>" form="<?php echo $form_id; ?>" placeholder="Enter score">
                                 </td>
                                 <td class="text-end">
                                     <button type="submit" class="btn btn-sm btn-outline-primary" form="<?php echo $form_id; ?>">Update</button>
