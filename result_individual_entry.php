@@ -324,15 +324,30 @@ $flash_error = get_flash('error');
     <div class="card-body">
         <div class="d-flex align-items-center justify-content-between mb-3">
             <h2 class="h6 mb-0">Event Result Status</h2>
-            <form method="post" class="d-flex gap-2 align-items-center">
-                <input type="hidden" name="form_action" value="update_status">
-                <select name="result_status" class="form-select" required>
-                    <?php foreach ($result_status_options as $key => $label): ?>
-                        <option value="<?php echo $key; ?>" <?php echo $key === $current_status ? 'selected' : ''; ?>><?php echo sanitize($label); ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <button type="submit" class="btn btn-primary">Update Status</button>
-            </form>
+            <div class="d-flex align-items-center gap-2">
+                <form method="post" class="d-flex gap-2 align-items-center mb-0">
+                    <input type="hidden" name="form_action" value="update_status">
+                    <select name="result_status" class="form-select" required>
+                        <?php foreach ($result_status_options as $key => $label): ?>
+                            <option value="<?php echo $key; ?>" <?php echo $key === $current_status ? 'selected' : ''; ?>><?php echo sanitize($label); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <button type="submit" class="btn btn-primary" title="Update Status">
+                        <i class="bi bi-arrow-repeat"></i>
+                        <span class="visually-hidden">Update Status</span>
+                    </button>
+                </form>
+                <a
+                    href="result_individual_final_report.php?event_master_id=<?php echo (int) $event_master_id; ?>"
+                    class="btn btn-outline-secondary"
+                    target="_blank"
+                    rel="noopener"
+                    title="Open final result report"
+                >
+                    <i class="bi bi-file-earmark-text"></i>
+                    <span class="visually-hidden">Open final result report</span>
+                </a>
+            </div>
         </div>
         <p class="text-muted mb-0">Set the publication status for this event's individual results.</p>
     </div>
