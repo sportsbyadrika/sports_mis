@@ -11,6 +11,7 @@ CREATE TABLE events (
     bank_ifsc VARCHAR(20),
     bank_name VARCHAR(150),
     payment_qr_path VARCHAR(255),
+    receipt_signature_path VARCHAR(255),
     created_by INT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP

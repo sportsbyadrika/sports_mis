@@ -6,6 +6,7 @@ require_login();
 require_role(['event_staff']);
 
 require_once __DIR__ . '/includes/header.php';
+require_once __DIR__ . '/includes/institution_financial_snapshot.php';
 
 $db = get_db_connection();
 $user = current_user();
@@ -45,86 +46,23 @@ if ($selected_institution_id <= 0 || !array_key_exists($selected_institution_id,
 
 $selected_institution = $institutions[$selected_institution_id];
 
-$participant_count = 0;
-$participant_event_count = 0;
-$participant_fees = 0.0;
-$stmt = $db->prepare(
-    "SELECT
-        COUNT(DISTINCT pe.participant_id) AS participant_count,
-        COUNT(DISTINCT CASE WHEN em.event_type = 'Individual' THEN pe.event_master_id END) AS participant_event_count,
-        COALESCE(SUM(pe.fees), 0) AS total_fees
-    FROM participant_events pe
-    JOIN participants p ON p.id = pe.participant_id
-    JOIN event_master em ON em.id = pe.event_master_id
-    WHERE p.institution_id = ? AND p.status IN ('submitted', 'approved')"
-);
-$stmt->bind_param('i', $selected_institution_id);
-$stmt->execute();
-$stmt->bind_result($participant_count_result, $participant_event_count_result, $participant_fees_result);
-if ($stmt->fetch()) {
-    $participant_count = (int) $participant_count_result;
-    $participant_event_count = (int) $participant_event_count_result;
-    $participant_fees = (float) $participant_fees_result;
-}
-$stmt->close();
+$snapshot = get_institution_financial_snapshot($db, $event_id, $selected_institution_id);
+$receipt_url = 'event_staff_institution_financial_receipt.php?institution_id=' . (int) $selected_institution_id;
 
-$team_entry_count = 0;
-$team_entry_fees = 0.0;
-$stmt = $db->prepare(
-    "SELECT COUNT(*) AS entry_count, COALESCE(SUM(em.fees), 0) AS total_fees
-    FROM team_entries te
-    JOIN event_master em ON em.id = te.event_master_id
-    WHERE te.institution_id = ? AND te.status IN ('pending', 'approved')"
-);
-$stmt->bind_param('i', $selected_institution_id);
-$stmt->execute();
-$stmt->bind_result($team_entry_count_result, $team_entry_fees_result);
-if ($stmt->fetch()) {
-    $team_entry_count = (int) $team_entry_count_result;
-    $team_entry_fees = (float) $team_entry_fees_result;
-}
-$stmt->close();
-
-$institution_event_count = 0;
-$institution_event_fees = 0.0;
-$stmt = $db->prepare(
-    "SELECT COUNT(*) AS registration_count, COALESCE(SUM(em.fees), 0) AS total_fees
-    FROM institution_event_registrations ier
-    JOIN event_master em ON em.id = ier.event_master_id
-    WHERE ier.institution_id = ? AND ier.status IN ('pending', 'approved')"
-);
-$stmt->bind_param('i', $selected_institution_id);
-$stmt->execute();
-$stmt->bind_result($institution_event_count_result, $institution_event_fees_result);
-if ($stmt->fetch()) {
-    $institution_event_count = (int) $institution_event_count_result;
-    $institution_event_fees = (float) $institution_event_fees_result;
-}
-$stmt->close();
-
-$total_fee_due = $participant_fees + $team_entry_fees + $institution_event_fees;
-
-$fund_pending = 0.0;
-$fund_approved = 0.0;
-$stmt = $db->prepare(
-    "SELECT
-        COALESCE(SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END), 0) AS pending_amount,
-        COALESCE(SUM(CASE WHEN status = 'approved' THEN amount ELSE 0 END), 0) AS approved_amount
-    FROM fund_transfers
-    WHERE event_id = ? AND institution_id = ?"
-);
-$stmt->bind_param('ii', $event_id, $selected_institution_id);
-$stmt->execute();
-$stmt->bind_result($fund_pending_result, $fund_approved_result);
-if ($stmt->fetch()) {
-    $fund_pending = (float) $fund_pending_result;
-    $fund_approved = (float) $fund_approved_result;
-}
-$stmt->close();
-
-$fund_total = $fund_pending + $fund_approved;
-$balance = max($total_fee_due - $fund_approved, 0.0);
-$dues_cleared = $total_fee_due <= $fund_approved;
+$participant_count = $snapshot['participant_count'];
+$participant_event_count = $snapshot['participant_event_count'];
+$participant_fees = $snapshot['participant_fees'];
+$team_entry_count = $snapshot['team_entry_count'];
+$team_entry_fees = $snapshot['team_entry_fees'];
+$institution_event_count = $snapshot['institution_event_count'];
+$institution_event_fees = $snapshot['institution_event_fees'];
+$total_fee_due = $snapshot['total_fee_due'];
+$fund_pending = $snapshot['fund_pending'];
+$fund_approved = $snapshot['fund_approved'];
+$fund_total = $snapshot['fund_total'];
+$balance = $snapshot['balance'];
+$dues_cleared = $snapshot['dues_cleared'];
+$fee_breakdown = $snapshot['fee_breakdown'];
 ?>
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
@@ -163,51 +101,17 @@ $dues_cleared = $total_fee_due <= $fund_approved;
             <h2 class="h6 mb-0"><?php echo sanitize($selected_institution['name']); ?></h2>
             <div class="small text-muted">Participants: <?php echo number_format($participant_count); ?> · Teams: <?php echo number_format($team_entry_count); ?> · Institution Events: <?php echo number_format($institution_event_count); ?></div>
         </div>
-        <span class="badge bg-primary">Finance</span>
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-primary">Finance</span>
+            <a href="<?php echo sanitize($receipt_url); ?>" class="btn btn-sm btn-outline-secondary" target="_blank" rel="noopener noreferrer">
+                <i class="bi bi-printer"></i> Print Receipt
+            </a>
+        </div>
     </div>
     <div class="card-body">
         <div class="row g-4 align-items-stretch">
             <div class="col-lg-6">
                 <div class="text-muted text-uppercase small mb-2">Fee Due Breakdown</div>
-                <?php
-                    $fee_breakdown = [
-                        [
-                            'label' => 'Participant Fees',
-                            'counts' => [
-                                [
-                                    'value' => $participant_count,
-                                    'label' => 'Participants',
-                                ],
-                                [
-                                    'value' => $participant_event_count,
-                                    'label' => 'Events',
-                                ],
-                            ],
-                            'amount' => $participant_fees,
-                            'link' => 'event_staff_report_institution_participants.php?report=individual&institution_id=' . (int) $selected_institution_id,
-                        ],
-                        [
-                            'label' => 'Team Entry Fees',
-                            'counts' => [
-                                [
-                                    'value' => $team_entry_count,
-                                    'label' => 'Teams',
-                                ],
-                            ],
-                            'amount' => $team_entry_fees,
-                        ],
-                        [
-                            'label' => 'Institution Event Fees',
-                            'counts' => [
-                                [
-                                    'value' => $institution_event_count,
-                                    'label' => 'Events',
-                                ],
-                            ],
-                            'amount' => $institution_event_fees,
-                        ],
-                    ];
-                ?>
                 <?php foreach ($fee_breakdown as $item): ?>
                     <div class="d-flex justify-content-between py-2 border-bottom">
                         <div>
