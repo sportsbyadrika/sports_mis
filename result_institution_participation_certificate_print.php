@@ -119,8 +119,8 @@ if (!$participants) {
             letter-spacing: 0.1rem;
         }
         .participant-photo-wrapper {
-            width: 3.5cm;
-            height: 4.5cm;
+            width: 3cm;
+            height: 4cm;
             border-radius: 12px;
             overflow: hidden;
             border: 2px solid #000000;
@@ -190,9 +190,21 @@ if (!$participants) {
             </div>
             <p class="certificate-text">
                 This Certifies that <span class="participant-name"><?php echo sanitize($participant['name']); ?></span>
-                of <span class="institution-name"><?php echo sanitize($institution['name']); ?></span><?php if (!empty($institution['affiliation_number'])): ?>
-                    (Affiliation: <span class="affiliation-code"><?php echo sanitize($institution['affiliation_number']); ?></span>)<?php endif; ?>
-                participated in the South Zone Sahodaya Complex 2025 conducted at
+                of <span class="institution-name"><?php echo sanitize($institution['name']); ?></span>
+                <?php if (!empty($institution['affiliation_number']) || !empty($participant['chest_number'])): ?>
+                    (
+                    <?php if (!empty($institution['affiliation_number'])): ?>
+                        Affiliation: <span class="affiliation-code"><?php echo sanitize($institution['affiliation_number']); ?></span>
+                    <?php endif; ?>
+                    <?php if (!empty($institution['affiliation_number']) && !empty($participant['chest_number'])): ?>
+                        |
+                    <?php endif; ?>
+                    <?php if (!empty($participant['chest_number'])): ?>
+                        Chest No: <span class="affiliation-code"><?php echo sanitize((string) $participant['chest_number']); ?></span>
+                    <?php endif; ?>
+                    )
+                <?php endif; ?>
+                participated in the South Zone Sahodaya Complex Inter-School Athletic Meet 2025 conducted at
                 Sree Padam Stadium, Attingal, from October 23rd to 25th, 2025.
             </p>
         </div>
