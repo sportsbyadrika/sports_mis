@@ -16,6 +16,7 @@ $event_id = (int) $user['event_id'];
 $errors = [];
 $success = null;
 $delete_qr_path = null;
+$delete_signature_path = null;
 
 $stmt = $db->prepare('SELECT * FROM events WHERE id = ?');
 $stmt->bind_param('i', $event_id);
@@ -40,6 +41,7 @@ if (is_post()) {
     $event['bank_name'] = trim((string) post_param('bank_name', (string) ($event['bank_name'] ?? '')));
 
     $remove_qr = (string) post_param('remove_qr', '') === '1';
+    $remove_signature = (string) post_param('remove_signature', '') === '1';
 
     if ($event['bank_account_number'] === '') {
         $event['bank_account_number'] = null;
@@ -56,6 +58,10 @@ if (is_post()) {
     $qr_upload = $_FILES['payment_qr'] ?? null;
     $qr_ready_for_save = false;
     $qr_extension = null;
+
+    $signature_upload = $_FILES['receipt_signature'] ?? null;
+    $signature_ready_for_save = false;
+    $signature_extension = null;
 
     if ($qr_upload && ($qr_upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
         if (($qr_upload['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) {
@@ -84,6 +90,33 @@ if (is_post()) {
         }
     }
 
+    if ($signature_upload && ($signature_upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+        if (($signature_upload['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) {
+            $errors['receipt_signature'] = 'Failed to upload the signature image.';
+        } else {
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mime = $finfo ? finfo_file($finfo, $signature_upload['tmp_name']) : null;
+            if ($finfo) {
+                finfo_close($finfo);
+            }
+
+            $allowed_mimes = [
+                'image/jpeg' => 'jpg',
+                'image/png' => 'png',
+                'image/webp' => 'webp',
+            ];
+
+            if (!$mime || !array_key_exists($mime, $allowed_mimes)) {
+                $errors['receipt_signature'] = 'Signature image must be a JPG, PNG, or WEBP file.';
+            } elseif (($signature_upload['size'] ?? 0) > 5 * 1024 * 1024) {
+                $errors['receipt_signature'] = 'Signature image must be smaller than 5MB.';
+            } else {
+                $signature_extension = $allowed_mimes[$mime];
+                $signature_ready_for_save = true;
+            }
+        }
+    }
+
     if (!$errors) {
         if ($qr_ready_for_save) {
             $upload_dir = __DIR__ . '/uploads/event_payments';
@@ -108,12 +141,37 @@ if (is_post()) {
             $delete_qr_path = $event['payment_qr_path'];
             $event['payment_qr_path'] = null;
         }
+
+        if ($signature_ready_for_save) {
+            $upload_dir = __DIR__ . '/uploads/event_signatures';
+            if (!is_dir($upload_dir) && !mkdir($upload_dir, 0777, true) && !is_dir($upload_dir)) {
+                $errors['receipt_signature'] = 'Unable to prepare the directory for signature uploads.';
+            } else {
+                try {
+                    $random = bin2hex(random_bytes(8));
+                } catch (Throwable $e) {
+                    $random = uniqid('', true);
+                }
+                $filename = 'signature_' . time() . '_' . $random . '.' . $signature_extension;
+                $destination = $upload_dir . '/' . $filename;
+                if (!move_uploaded_file($signature_upload['tmp_name'], $destination)) {
+                    $errors['receipt_signature'] = 'Failed to save the signature image.';
+                } else {
+                    $delete_signature_path = $event['receipt_signature_path'] ?? null;
+                    $event['receipt_signature_path'] = 'uploads/event_signatures/' . $filename;
+                }
+            }
+        } elseif ($remove_signature && !empty($event['receipt_signature_path'])) {
+            $delete_signature_path = $event['receipt_signature_path'];
+            $event['receipt_signature_path'] = null;
+        }
     }
 
     if (!$errors) {
-        $stmt = $db->prepare('UPDATE events SET name = ?, location = ?, start_date = ?, end_date = ?, description = ?, bank_account_number = ?, bank_ifsc = ?, bank_name = ?, payment_qr_path = ? WHERE id = ?');
+        $stmt = $db->prepare('UPDATE events SET name = ?, location = ?, start_date = ?, end_date = ?, description = ?, bank_account_number = ?, bank_ifsc = ?, bank_name = ?, payment_qr_path = ?, receipt_signature_path = ? WHERE id = ?');
+        $types = 'ssssssssss' . 'i';
         $stmt->bind_param(
-            'sssssssssi',
+            $types,
             $event['name'],
             $event['location'],
             $event['start_date'],
@@ -123,6 +181,7 @@ if (is_post()) {
             $event['bank_ifsc'],
             $event['bank_name'],
             $event['payment_qr_path'],
+            $event['receipt_signature_path'],
             $event_id
         );
         $stmt->execute();
@@ -131,6 +190,12 @@ if (is_post()) {
 
         if ($delete_qr_path && $delete_qr_path !== ($event['payment_qr_path'] ?? null)) {
             $file = __DIR__ . '/' . ltrim($delete_qr_path, '/');
+            if (is_file($file)) {
+                @unlink($file);
+            }
+        }
+        if ($delete_signature_path && $delete_signature_path !== ($event['receipt_signature_path'] ?? null)) {
+            $file = __DIR__ . '/' . ltrim($delete_signature_path, '/');
             if (is_file($file)) {
                 @unlink($file);
             }
@@ -199,6 +264,22 @@ if (is_post()) {
                                 </div>
                                 <div class="mt-2">
                                     <img src="<?php echo sanitize($event['payment_qr_path']); ?>" alt="Payment QR code" class="img-thumbnail" style="max-width: 200px;">
+                                </div>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                    <div class="mb-3">
+                        <label for="receipt_signature" class="form-label">Event Head Signature</label>
+                        <input type="file" class="form-control <?php echo isset($errors['receipt_signature']) ? 'is-invalid' : ''; ?>" id="receipt_signature" name="receipt_signature" accept="image/png,image/jpeg,image/webp">
+                        <?php if (isset($errors['receipt_signature'])): ?><div class="invalid-feedback"><?php echo sanitize($errors['receipt_signature']); ?></div><?php else: ?><div class="form-text">Upload signature image (PNG, JPG, WEBP, max 5MB).</div><?php endif; ?>
+                        <?php if (!empty($event['receipt_signature_path'])): ?>
+                            <div class="mt-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" value="1" id="remove_signature" name="remove_signature">
+                                    <label class="form-check-label" for="remove_signature">Remove current signature</label>
+                                </div>
+                                <div class="mt-2">
+                                    <img src="<?php echo sanitize($event['receipt_signature_path']); ?>" alt="Event head signature" class="img-thumbnail" style="max-width: 200px;">
                                 </div>
                             </div>
                         <?php endif; ?>
