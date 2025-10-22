@@ -44,7 +44,7 @@ if (!$institution) {
 }
 
 $participants_stmt = $db->prepare(
-    "SELECT name\n    FROM participants\n    WHERE institution_id = ? AND event_id = ? AND status = 'approved'\n    ORDER BY name ASC"
+    "SELECT name, chest_number, photo_path\n    FROM participants\n    WHERE institution_id = ? AND event_id = ? AND status = 'approved'\n    ORDER BY name ASC"
 );
 
 if (!$participants_stmt) {
@@ -98,12 +98,46 @@ if (!$participants) {
         }
         .certificate-content {
             width: 100%;
-            padding: 12cm 2cm 2cm;
+            padding: 10cm 2cm 2cm;
             text-align: center;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
+            gap: 1.5cm;
+        }
+        .certificate-header {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75cm;
+        }
+        .chest-number {
+            font-size: 1.5rem;
+            font-weight: bold;
+            letter-spacing: 0.1rem;
+        }
+        .participant-photo-wrapper {
+            width: 3.5cm;
+            height: 4.5cm;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid #000000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f8f9fa;
+        }
+        .participant-photo {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .photo-placeholder {
+            font-size: 0.9rem;
+            color: #6c757d;
+            padding: 0.5cm;
         }
         .certificate-text {
             font-size: 1.5rem;
@@ -142,6 +176,18 @@ if (!$participants) {
 <?php foreach ($participants as $participant): ?>
     <section class="certificate-page">
         <div class="certificate-content">
+            <div class="certificate-header">
+                <div class="chest-number">
+                    Chest No: <?php echo !empty($participant['chest_number']) ? sanitize((string) $participant['chest_number']) : '________'; ?>
+                </div>
+                <div class="participant-photo-wrapper">
+                    <?php if (!empty($participant['photo_path'])): ?>
+                        <img src="<?php echo sanitize($participant['photo_path']); ?>" alt="Participant photo" class="participant-photo">
+                    <?php else: ?>
+                        <div class="photo-placeholder">Photo Not Available</div>
+                    <?php endif; ?>
+                </div>
+            </div>
             <p class="certificate-text">
                 This Certifies that <span class="participant-name"><?php echo sanitize($participant['name']); ?></span>
                 of <span class="institution-name"><?php echo sanitize($institution['name']); ?></span><?php if (!empty($institution['affiliation_number'])): ?>
