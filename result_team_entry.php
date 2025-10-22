@@ -327,17 +327,32 @@ $flash_error = get_flash('error');
 </div>
 <div class="card shadow-sm mb-4">
     <div class="card-body">
-        <div class="d-flex align-items-center justify-content-between mb-3">
+        <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
             <h2 class="h6 mb-0">Event Result Status</h2>
-            <form method="post" class="d-flex gap-2 align-items-center">
-                <input type="hidden" name="form_action" value="update_status">
-                <select name="result_status" class="form-select" required>
-                    <?php foreach ($result_status_options as $key => $label): ?>
-                        <option value="<?php echo $key; ?>" <?php echo $key === $current_status ? 'selected' : ''; ?>><?php echo sanitize($label); ?></option>
-                    <?php endforeach; ?>
-                </select>
-                <button type="submit" class="btn btn-primary">Update Status</button>
-            </form>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <form method="post" class="d-flex gap-2 align-items-center flex-wrap">
+                    <input type="hidden" name="form_action" value="update_status">
+                    <select name="result_status" class="form-select" required>
+                        <?php foreach ($result_status_options as $key => $label): ?>
+                            <option value="<?php echo $key; ?>" <?php echo $key === $current_status ? 'selected' : ''; ?>><?php echo sanitize($label); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <button type="submit" class="btn btn-primary" title="Update result status">
+                        <i class="bi bi-arrow-repeat"></i>
+                        <span class="visually-hidden">Update Status</span>
+                    </button>
+                </form>
+                <a
+                    href="result_team_final_report.php?event_master_id=<?php echo (int) $event_master_id; ?>"
+                    class="btn btn-outline-secondary"
+                    target="_blank"
+                    rel="noopener"
+                    title="Open final result report"
+                >
+                    <i class="bi bi-file-earmark-text"></i>
+                    <span class="visually-hidden">View final result report</span>
+                </a>
+            </div>
         </div>
         <p class="text-muted mb-0">Set the publication status for this event's team results.</p>
     </div>
