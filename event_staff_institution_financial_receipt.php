@@ -43,7 +43,7 @@ if (!$institution) {
     exit;
 }
 
-$stmt = $db->prepare('SELECT name, location, start_date, end_date, receipt_signature_path, bank_account_number, bank_ifsc, bank_name FROM events WHERE id = ? LIMIT 1');
+$stmt = $db->prepare('SELECT name, description, location, start_date, end_date, receipt_signature_path, bank_account_number, bank_ifsc, bank_name FROM events WHERE id = ? LIMIT 1');
 $stmt->bind_param('i', $event_id);
 $stmt->execute();
 $event = $stmt->get_result()->fetch_assoc();
@@ -61,6 +61,11 @@ $snapshot = get_institution_financial_snapshot($db, $event_id, $institution_id);
 $generated_at = new DateTimeImmutable('now');
 $signature_path = $event['receipt_signature_path'] ?? null;
 $signature_url = $signature_path ? ltrim((string) $signature_path, '/') : null;
+$event_description = trim((string) ($event['description'] ?? ''));
+if ($event_description === '') {
+    $event_description = 'N/A';
+}
+$event_description = preg_replace('/\s+/u', ' ', $event_description);
 $event_period = '';
 if (!empty($event['start_date']) || !empty($event['end_date'])) {
     $start = !empty($event['start_date']) ? date('d M Y', strtotime((string) $event['start_date'])) : null;
@@ -209,6 +214,16 @@ function receipt_sanitize(string $value): string
             color: #6c757d;
             margin-top: 8px;
         }
+        .footer-note {
+            margin-top: 32px;
+            font-size: 12px;
+            color: #868e96;
+            line-height: 1.5;
+        }
+        .footer-note a {
+            color: inherit;
+            text-decoration: none;
+        }
         .print-actions {
             display: flex;
             justify-content: flex-end;
@@ -346,6 +361,11 @@ function receipt_sanitize(string $value): string
                 <div>Event Head Signature</div>
             </div>
         </div>
+        <p class="footer-note">
+            This is a computer-generated receipt issued via
+            <a href="https://sportsmis.com" target="_blank" rel="noopener">https://sportsmis.com</a>, powered by SportsbyA Tech Private Limited,
+            for the event-managing institution: <?php echo receipt_sanitize($event_description); ?>.
+        </p>
     </div>
     <script>
         window.addEventListener('load', function () {
