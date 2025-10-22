@@ -24,7 +24,7 @@ if ($event_master_id <= 0 || !in_array($certificate_type, ['merit', 'participati
 $db = get_db_connection();
 
 $event_stmt = $db->prepare(
-    "SELECT em.id, em.name, em.label, ac.name AS age_category, ev.name AS event_name\n    FROM event_master em\n    INNER JOIN age_categories ac ON ac.id = em.age_category_id\n    INNER JOIN events ev ON ev.id = em.event_id\n    WHERE em.id = ? AND em.event_id = ? AND em.event_type = 'Individual'"
+    "SELECT em.id, em.name, em.label, em.code AS event_code, ac.name AS age_category, ev.name AS event_name\n    FROM event_master em\n    INNER JOIN age_categories ac ON ac.id = em.age_category_id\n    INNER JOIN events ev ON ev.id = em.event_id\n    WHERE em.id = ? AND em.event_id = ? AND em.event_type = 'Individual'"
 );
 $event_stmt->bind_param('ii', $event_master_id, $assigned_event_id);
 $event_stmt->execute();
@@ -81,7 +81,7 @@ if ($result_master_rows) {
 }
 
 $participants_stmt = $db->prepare(
-    "SELECT p.name, i.name AS institution_name, res.result\n    FROM participant_events pe\n    INNER JOIN participants p ON p.id = pe.participant_id\n    INNER JOIN institutions i ON i.id = p.institution_id\n    LEFT JOIN individual_event_results res ON res.event_master_id = pe.event_master_id AND res.participant_id = p.id\n    WHERE pe.event_master_id = ? AND p.status = 'approved'\n    ORDER BY\n        CASE res.result\n            WHEN 'first_place' THEN 1\n            WHEN 'second_place' THEN 2\n            WHEN 'third_place' THEN 3\n            ELSE 4\n        END,\n        p.name"
+    "SELECT p.name, p.chest_number, i.name AS institution_name, res.result\n    FROM participant_events pe\n    INNER JOIN participants p ON p.id = pe.participant_id\n    INNER JOIN institutions i ON i.id = p.institution_id\n    LEFT JOIN individual_event_results res ON res.event_master_id = pe.event_master_id AND res.participant_id = p.id\n    WHERE pe.event_master_id = ? AND p.status = 'approved'\n    ORDER BY\n        CASE res.result\n            WHEN 'first_place' THEN 1\n            WHEN 'second_place' THEN 2\n            WHEN 'third_place' THEN 3\n            ELSE 4\n        END,\n        p.name"
 );
 $participants_stmt->bind_param('i', $event_master_id);
 $participants_stmt->execute();
@@ -111,6 +111,7 @@ foreach ($participants as $participant) {
         'name' => (string) ($participant['name'] ?? ''),
         'institution' => (string) ($participant['institution_name'] ?? ''),
         'position_label' => $position_label,
+        'chest_number' => isset($participant['chest_number']) ? (string) $participant['chest_number'] : null,
     ];
 }
 
@@ -123,6 +124,9 @@ if (!$certificates) {
 $event_label = trim((string) ($event_details['label'] ?: $event_details['name'] ?: ''));
 $event_label = $event_label !== '' ? $event_label : ($event_details['event_name'] ?? '');
 $event_label = (string) $event_label;
+$event_code = trim((string) ($event_details['event_code'] ?? ''));
+$certificate_year = '2025';
+$certificate_date = date('d-M-Y');
 
 ?><!DOCTYPE html>
 <html lang="en">
@@ -188,6 +192,14 @@ $event_label = (string) $event_label;
             text-transform: uppercase;
             letter-spacing: 0.05em;
         }
+        .certificate-meta {
+            margin-top: 2rem;
+            font-size: 1.1rem;
+            line-height: 1.4;
+        }
+        .certificate-meta .meta-label {
+            font-weight: bold;
+        }
         @media print {
             body {
                 margin: 0;
@@ -218,6 +230,17 @@ $event_label = (string) $event_label;
                     <span class="achievement-label">Achieved: <?php echo sanitize($certificate['position_label']); ?></span>
                 <?php endif; ?>
             </p>
+            <?php if ($certificate_type === 'merit'): ?>
+                <?php
+                    $chest_segment = ($certificate['chest_number'] ?? '') !== '' ? (string) $certificate['chest_number'] : 'N/A';
+                    $event_segment = $event_code !== '' ? $event_code : 'N/A';
+                    $certificate_number = $chest_segment . ' / ' . $event_segment . ' / ' . $certificate_year;
+                ?>
+                <div class="certificate-meta">
+                    <div><span class="meta-label">Certificate No:</span> <?php echo sanitize($certificate_number); ?></div>
+                    <div><span class="meta-label">Date:</span> <?php echo sanitize($certificate_date); ?></div>
+                </div>
+            <?php endif; ?>
         </div>
     </section>
 <?php endforeach; ?>
