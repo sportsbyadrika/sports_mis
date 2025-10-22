@@ -33,10 +33,15 @@
                     <li class="nav-item"><a class="nav-link" href="institution_approved_report.php" target="_blank">Approved Participants Report</a></li>
                 <?php endif; ?>
                 <?php if ($user['role'] === 'event_staff'): ?>
-                    <li class="nav-item"><a class="nav-link" href="event_staff_participants.php">Participants</a></li>
-                    <li class="nav-item"><a class="nav-link" href="event_staff_team_entries.php">Team Entries</a></li>
-                    <li class="nav-item"><a class="nav-link" href="institution_event_registrations.php">Institution Events</a></li>
-                    <li class="nav-item"><a class="nav-link" href="event_staff_fund_transfers.php">Fund Transfers</a></li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="eventStaffRegistrationApproval" role="button" data-bs-toggle="dropdown" aria-expanded="false">Registration Approval</a>
+                        <ul class="dropdown-menu" aria-labelledby="eventStaffRegistrationApproval">
+                            <li><a class="dropdown-item" href="event_staff_participants.php">Participants</a></li>
+                            <li><a class="dropdown-item" href="event_staff_team_entries.php">Team Entries</a></li>
+                            <li><a class="dropdown-item" href="institution_event_registrations.php">Institution Events</a></li>
+                            <li><a class="dropdown-item" href="event_staff_fund_transfers.php">Fund Transfers</a></li>
+                        </ul>
+                    </li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="eventStaffResults" role="button" data-bs-toggle="dropdown" aria-expanded="false">Result</a>
                         <ul class="dropdown-menu" aria-labelledby="eventStaffResults">
