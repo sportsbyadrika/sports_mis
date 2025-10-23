@@ -2,7 +2,7 @@
 require_once __DIR__ . '/includes/header.php';
 
 require_login();
-require_role(['event_staff']);
+require_role(['event_staff', 'institution_admin']);
 
 $user = current_user();
 $db = get_db_connection();

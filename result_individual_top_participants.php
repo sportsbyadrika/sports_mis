@@ -3,7 +3,7 @@ $page_title = 'Top Individual Points Report';
 require_once __DIR__ . '/includes/auth.php';
 
 require_login();
-require_role(['event_staff']);
+require_role(['event_staff', 'institution_admin']);
 
 $is_print_view = (int) get_param('print', 0) === 1;
 
