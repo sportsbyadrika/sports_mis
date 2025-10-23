@@ -140,3 +140,45 @@ function fetch_event_news(mysqli $db, int $event_id, int $limit = 5): array
 
     return $news;
 }
+
+function get_result_label_map(mysqli $db, int $event_id): array
+{
+    $labels = [
+        'participant' => 'Participant',
+        'first_place' => 'First Place',
+        'second_place' => 'Second Place',
+        'third_place' => 'Third Place',
+        'fourth_place' => 'Fourth Place',
+        'fifth_place' => 'Fifth Place',
+        'sixth_place' => 'Sixth Place',
+        'seventh_place' => 'Seventh Place',
+        'eighth_place' => 'Eighth Place',
+        'absent' => 'Absent',
+        'withheld' => 'Withheld',
+    ];
+
+    $stmt = $db->prepare(
+        "SELECT result_key, result_label FROM result_master_settings WHERE event_id = ? ORDER BY sort_order ASC, id ASC"
+    );
+
+    if ($stmt) {
+        $stmt->bind_param('i', $event_id);
+        $stmt->execute();
+        $overrides = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        $stmt->close();
+
+        foreach ($overrides as $row) {
+            $key = strtolower(trim((string) ($row['result_key'] ?? '')));
+            if ($key === '' || !array_key_exists($key, $labels)) {
+                continue;
+            }
+
+            $label = trim((string) ($row['result_label'] ?? ''));
+            if ($label !== '') {
+                $labels[$key] = $label;
+            }
+        }
+    }
+
+    return $labels;
+}
