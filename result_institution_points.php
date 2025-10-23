@@ -87,6 +87,7 @@ foreach ($institution_points as $row) {
                             <th class="text-end" scope="col">Individual Points</th>
                             <th class="text-end" scope="col">Team Points</th>
                             <th class="text-end" scope="col">Grand Total</th>
+                            <th class="text-center" scope="col" style="width: 70px;">Details</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -98,6 +99,21 @@ foreach ($institution_points as $row) {
                                 <td class="text-end"><?php echo number_format((float) $row['individual_points'], 2); ?></td>
                                 <td class="text-end"><?php echo number_format((float) $row['team_points'], 2); ?></td>
                                 <td class="text-end fw-semibold"><?php echo number_format((float) $row['grand_total'], 2); ?></td>
+                                <td class="text-center">
+                                    <button
+                                        type="button"
+                                        class="btn btn-outline-primary btn-sm institution-details-btn"
+                                        data-institution-id="<?php echo (int) $row['id']; ?>"
+                                        data-institution-name="<?php echo sanitize($row['name']); ?>"
+                                        data-affiliation-number="<?php echo sanitize($row['affiliation_number'] ?? ''); ?>"
+                                        data-individual-points="<?php echo number_format((float) $row['individual_points'], 2, '.', ''); ?>"
+                                        data-team-points="<?php echo number_format((float) $row['team_points'], 2, '.', ''); ?>"
+                                        data-grand-total="<?php echo number_format((float) $row['grand_total'], 2, '.', ''); ?>"
+                                    >
+                                        <i class="bi bi-people-fill"></i>
+                                        <span class="visually-hidden">View participants and teams</span>
+                                    </button>
+                                </td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
@@ -107,6 +123,7 @@ foreach ($institution_points as $row) {
                             <th class="text-end"><?php echo number_format($total_individual_points, 2); ?></th>
                             <th class="text-end"><?php echo number_format($total_team_points, 2); ?></th>
                             <th class="text-end"><?php echo number_format($total_grand_points, 2); ?></th>
+                            <th></th>
                         </tr>
                     </tfoot>
                 </table>
@@ -114,5 +131,193 @@ foreach ($institution_points as $row) {
         </div>
     </div>
 <?php endif; ?>
+<div class="modal fade" id="institutionDetailsModal" tabindex="-1" aria-labelledby="institutionDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h2 class="modal-title h5 mb-1" id="institutionDetailsModalLabel">Institution Summary</h2>
+                    <div class="text-muted" data-field="institution-affiliation"></div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <h3 class="h5 mb-0" data-field="institution-name"></h3>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="row text-center g-2">
+                            <div class="col-4">
+                                <div class="text-uppercase text-muted small">Individual Points</div>
+                                <div class="fw-semibold" data-field="individual-points">0.00</div>
+                            </div>
+                            <div class="col-4">
+                                <div class="text-uppercase text-muted small">Team Points</div>
+                                <div class="fw-semibold" data-field="team-points">0.00</div>
+                            </div>
+                            <div class="col-4">
+                                <div class="text-uppercase text-muted small">Grand Total</div>
+                                <div class="fw-semibold" data-field="grand-total">0.00</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <h3 class="h6">Participants</h3>
+                    <div class="table-responsive border rounded">
+                        <table class="table table-sm table-striped mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th scope="col" class="text-center" style="width: 70px;">Sl. No</th>
+                                    <th scope="col">Participant</th>
+                                    <th scope="col">Participating Event</th>
+                                    <th scope="col">Position</th>
+                                    <th scope="col">Score</th>
+                                    <th scope="col" class="text-end">Points</th>
+                                </tr>
+                            </thead>
+                            <tbody data-role="participants-body">
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted py-3">Select an institution to view participant results.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="h6">Teams</h3>
+                    <div class="table-responsive border rounded">
+                        <table class="table table-sm table-striped mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th scope="col" class="text-center" style="width: 70px;">Sl. No</th>
+                                    <th scope="col">Team</th>
+                                    <th scope="col">Event</th>
+                                    <th scope="col">Position</th>
+                                    <th scope="col">Score</th>
+                                    <th scope="col" class="text-end">Points</th>
+                                </tr>
+                            </thead>
+                            <tbody data-role="teams-body">
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted py-3">Select an institution to view team results.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const modalElement = document.getElementById('institutionDetailsModal');
+        if (!modalElement) {
+            return;
+        }
+
+        const modalInstance = bootstrap.Modal.getOrCreateInstance(modalElement);
+        const participantsBody = modalElement.querySelector('[data-role="participants-body"]');
+        const teamsBody = modalElement.querySelector('[data-role="teams-body"]');
+        const nameField = modalElement.querySelector('[data-field="institution-name"]');
+        const affiliationField = modalElement.querySelector('[data-field="institution-affiliation"]');
+        const individualPointsField = modalElement.querySelector('[data-field="individual-points"]');
+        const teamPointsField = modalElement.querySelector('[data-field="team-points"]');
+        const grandTotalField = modalElement.querySelector('[data-field="grand-total"]');
+        const numberFormatter = new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const tempContainer = document.createElement('div');
+
+        function escapeHtml(value) {
+            tempContainer.textContent = value == null ? '' : String(value);
+            return tempContainer.innerHTML;
+        }
+
+        function setLoadingState() {
+            participantsBody.innerHTML = '<tr><td colspan="6" class="text-center py-3">Loading participant details…</td></tr>';
+            teamsBody.innerHTML = '<tr><td colspan="6" class="text-center py-3">Loading team details…</td></tr>';
+        }
+
+        function renderRows(container, items, emptyMessage) {
+            if (!items || items.length === 0) {
+                container.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3">' + emptyMessage + '</td></tr>';
+                return;
+            }
+
+            container.innerHTML = items.map(function (item, index) {
+                const score = item.score ? item.score : '';
+                const points = item.points ? item.points : '0.00';
+                return '<tr>' +
+                    '<td class="text-center">' + escapeHtml(index + 1) + '</td>' +
+                    '<td>' + escapeHtml(item.name || '') + '</td>' +
+                    '<td>' + escapeHtml(item.eventLabel || '') + '</td>' +
+                    '<td>' + escapeHtml(item.position || '') + '</td>' +
+                    '<td>' + escapeHtml(score) + '</td>' +
+                    '<td class="text-end">' + escapeHtml(points) + '</td>' +
+                '</tr>';
+            }).join('');
+        }
+
+        function sanitizeDatasetValue(value) {
+            return typeof value === 'string' ? value : '';
+        }
+
+        function formatPoints(value) {
+            const numericValue = Number.parseFloat(value);
+            if (Number.isFinite(numericValue)) {
+                return numberFormatter.format(numericValue);
+            }
+            return '0.00';
+        }
+
+        document.querySelectorAll('.institution-details-btn').forEach(function (button) {
+            button.addEventListener('click', function () {
+                const institutionId = button.getAttribute('data-institution-id');
+                if (!institutionId) {
+                    return;
+                }
+
+                const institutionName = sanitizeDatasetValue(button.getAttribute('data-institution-name'));
+                const affiliationNumber = sanitizeDatasetValue(button.getAttribute('data-affiliation-number'));
+                const individualPoints = formatPoints(button.getAttribute('data-individual-points'));
+                const teamPoints = formatPoints(button.getAttribute('data-team-points'));
+                const grandTotal = formatPoints(button.getAttribute('data-grand-total'));
+
+                nameField.textContent = institutionName || 'Institution';
+                affiliationField.textContent = affiliationNumber ? 'Affiliation Number: ' + affiliationNumber : '';
+                individualPointsField.textContent = individualPoints;
+                teamPointsField.textContent = teamPoints;
+                grandTotalField.textContent = grandTotal;
+
+                setLoadingState();
+                modalInstance.show();
+
+                const url = 'result_institution_points_details.php?institution_id=' + encodeURIComponent(institutionId);
+
+                fetch(url, { headers: { 'Accept': 'application/json' } })
+                    .then(function (response) {
+                        if (!response.ok) {
+                            throw new Error('Failed to load institution details.');
+                        }
+                        return response.json();
+                    })
+                    .then(function (data) {
+                        renderRows(participantsBody, data.participants || [], 'No participant results available.');
+                        renderRows(teamsBody, data.teams || [], 'No team results available.');
+                    })
+                    .catch(function () {
+                        participantsBody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-3">Unable to load participant details.</td></tr>';
+                        teamsBody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-3">Unable to load team details.</td></tr>';
+                    });
+            });
+        });
+    });
+</script>
 <?php
 include __DIR__ . '/includes/footer.php';
