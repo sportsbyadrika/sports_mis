@@ -10,7 +10,7 @@ if (!$user) {
     return;
 }
 
-if (!in_array($user['role'], ['event_staff'], true)) {
+if (!in_array($user['role'], ['event_staff', 'institution_admin'], true)) {
     http_response_code(403);
     echo json_encode(['error' => 'Forbidden']);
     return;
