@@ -31,6 +31,13 @@
                     <li class="nav-item"><a class="nav-link" href="institution_event_registrations.php">Institution Events</a></li>
                     <li class="nav-item"><a class="nav-link" href="institution_fund_transfers.php">Fund Transfers</a></li>
                     <li class="nav-item"><a class="nav-link" href="institution_approved_report.php" target="_blank">Approved Participants Report</a></li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="institutionAdminResults" role="button" data-bs-toggle="dropdown" aria-expanded="false">Result</a>
+                        <ul class="dropdown-menu" aria-labelledby="institutionAdminResults">
+                            <li><a class="dropdown-item" href="result_institution_points.php">Institution Points Summary</a></li>
+                            <li><a class="dropdown-item" href="result_individual_top_participants.php">Top Individual Points</a></li>
+                        </ul>
+                    </li>
                 <?php endif; ?>
                 <?php if ($user['role'] === 'event_staff'): ?>
                     <li class="nav-item dropdown">
