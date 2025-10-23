@@ -120,6 +120,46 @@ if (!array_key_exists($selected_gender, $gender_options)) {
 }
 
 $top_participants = [];
+$participant_event_details = [];
+
+$result_label_defaults = [
+    'participant' => 'Participant',
+    'first_place' => 'First Place',
+    'second_place' => 'Second Place',
+    'third_place' => 'Third Place',
+    'fourth_place' => 'Fourth Place',
+    'fifth_place' => 'Fifth Place',
+    'sixth_place' => 'Sixth Place',
+    'seventh_place' => 'Seventh Place',
+    'eighth_place' => 'Eighth Place',
+    'absent' => 'Absent',
+    'withheld' => 'Withheld',
+];
+
+$result_label_overrides = [];
+$result_label_stmt = $db->prepare(
+    "SELECT result_key, result_label FROM result_master_settings WHERE event_id = ? ORDER BY sort_order ASC, id ASC"
+);
+if ($result_label_stmt) {
+    $result_label_stmt->bind_param('i', $event_id);
+    $result_label_stmt->execute();
+    $result_label_overrides = $result_label_stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $result_label_stmt->close();
+}
+
+if ($result_label_overrides) {
+    foreach ($result_label_overrides as $row) {
+        $key = strtolower(trim((string) ($row['result_key'] ?? '')));
+        if ($key === '' || !array_key_exists($key, $result_label_defaults)) {
+            continue;
+        }
+
+        $label = trim((string) ($row['result_label'] ?? ''));
+        if ($label !== '') {
+            $result_label_defaults[$key] = $label;
+        }
+    }
+}
 
 if ($selected_age_category_id !== null) {
     $stmt = $db->prepare("SELECT p.id,
@@ -145,6 +185,73 @@ if ($selected_age_category_id !== null) {
         $top_participants = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
         $stmt->close();
     }
+}
+
+$participant_ids = array_map(static fn ($row) => (int) ($row['id'] ?? 0), $top_participants);
+$participant_ids = array_filter($participant_ids, static fn ($id) => $id > 0);
+
+if ($participant_ids) {
+    $placeholders = implode(',', array_fill(0, count($participant_ids), '?'));
+    $query = "SELECT pe.participant_id,
+                     COALESCE(NULLIF(em.label, ''), em.name) AS event_label,
+                     COALESCE(res.result, 'participant') AS result_key,
+                     res.score,
+                     COALESCE(res.individual_points, 0) AS individual_points
+                FROM participant_events pe
+                INNER JOIN event_master em ON em.id = pe.event_master_id
+                LEFT JOIN individual_event_results res
+                    ON res.event_master_id = pe.event_master_id
+                   AND res.participant_id = pe.participant_id
+               WHERE pe.participant_id IN ($placeholders)
+                 AND em.event_type = 'Individual'
+                 AND em.event_id = ?
+            ORDER BY em.name, em.id";
+
+    $events_stmt = $db->prepare($query);
+
+    if ($events_stmt) {
+        $types = str_repeat('i', count($participant_ids)) . 'i';
+        $params = $participant_ids;
+        $params[] = $event_id;
+        $events_stmt->bind_param($types, ...$params);
+        $events_stmt->execute();
+        $result = $events_stmt->get_result();
+
+        while ($row = $result->fetch_assoc()) {
+            $participant_id = (int) ($row['participant_id'] ?? 0);
+            if ($participant_id <= 0) {
+                continue;
+            }
+
+            $event_label = trim((string) ($row['event_label'] ?? ''));
+            $result_key = strtolower(trim((string) ($row['result_key'] ?? 'participant')));
+            $score = trim((string) ($row['score'] ?? ''));
+            $points_value = (float) ($row['individual_points'] ?? 0);
+
+            $participant_event_details[$participant_id][] = [
+                'eventLabel' => $event_label !== '' ? $event_label : 'Unnamed Event',
+                'position' => $result_label_defaults[$result_key] ?? ucwords(str_replace('_', ' ', $result_key)),
+                'score' => $score,
+                'points' => number_format($points_value, 2),
+            ];
+        }
+
+        $events_stmt->close();
+    }
+}
+
+$participant_modal_payloads = [];
+foreach ($top_participants as $participant) {
+    $participant_id = (int) ($participant['id'] ?? 0);
+    if ($participant_id <= 0) {
+        continue;
+    }
+
+    $participant_modal_payloads[$participant_id] = [
+        'participantName' => $participant['participant_name'] ?? '',
+        'institutionName' => $participant['institution_name'] ?? '',
+        'events' => $participant_event_details[$participant_id] ?? [],
+    ];
 }
 
 $selected_gender_label = $gender_options[$selected_gender] ?? $selected_gender;
@@ -228,6 +335,9 @@ $selected_gender_label = $gender_options[$selected_gender] ?? $selected_gender;
                                 <th scope="col">Institution</th>
                                 <th scope="col">Participant</th>
                                 <th class="text-end" scope="col">Individual Points</th>
+                                <?php if (!$is_print_view): ?>
+                                    <th class="text-center" scope="col" style="width: 80px;">Events</th>
+                                <?php endif; ?>
                             </tr>
                         </thead>
                         <tbody>
@@ -237,6 +347,26 @@ $selected_gender_label = $gender_options[$selected_gender] ?? $selected_gender;
                                     <td><?php echo sanitize($participant['institution_name']); ?></td>
                                     <td><?php echo sanitize($participant['participant_name']); ?></td>
                                     <td class="text-end"><?php echo number_format((float) $participant['total_points'], 2); ?></td>
+                                    <?php if (!$is_print_view): ?>
+                                        <?php
+                                        $participant_id = (int) ($participant['id'] ?? 0);
+                                        $modal_payload = $participant_modal_payloads[$participant_id] ?? [
+                                            'participantName' => $participant['participant_name'] ?? '',
+                                            'institutionName' => $participant['institution_name'] ?? '',
+                                            'events' => [],
+                                        ];
+                                        $modal_json = htmlspecialchars(
+                                            (string) json_encode($modal_payload, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP),
+                                            ENT_QUOTES,
+                                            'UTF-8'
+                                        );
+                                        ?>
+                                        <td class="text-center">
+                                            <button type="button" class="btn btn-outline-primary btn-sm participant-events-btn" data-participant-events="<?php echo $modal_json; ?>" title="View participated events">
+                                                <i class="bi bi-list-ul"></i>
+                                            </button>
+                                        </td>
+                                    <?php endif; ?>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
@@ -259,5 +389,109 @@ if ($is_print_view) {
 </html>
     <?php
 } else {
+    ?>
+    <div class="modal fade" id="participantEventsModal" tabindex="-1" aria-hidden="true" aria-labelledby="participantEventsModalLabel">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div>
+                        <h2 class="h5 modal-title mb-1" id="participantEventsModalLabel">Participant Events</h2>
+                        <div class="text-muted participant-events-institution"></div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th scope="col" style="width: 70px;">Sl. No</th>
+                                    <th scope="col">Participating Event</th>
+                                    <th scope="col">Position</th>
+                                    <th scope="col">Score</th>
+                                    <th scope="col" class="text-end">Points</th>
+                                </tr>
+                            </thead>
+                            <tbody class="participant-events-table-body">
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted">Select a participant to view events.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var modalElement = document.getElementById('participantEventsModal');
+        if (!modalElement || typeof bootstrap === 'undefined' || !bootstrap.Modal) {
+            return;
+        }
+
+        var modalInstance = new bootstrap.Modal(modalElement);
+        var modalTitle = modalElement.querySelector('.modal-title');
+        var modalInstitution = modalElement.querySelector('.participant-events-institution');
+        var tableBody = modalElement.querySelector('.participant-events-table-body');
+
+        function renderEvents(events) {
+            if (!Array.isArray(events) || events.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No events available for this participant.</td></tr>';
+                return;
+            }
+
+            var rows = events.map(function (event, index) {
+                var score = event.score ? event.score : '';
+                var points = event.points ? event.points : '0.00';
+
+                return '<tr>' +
+                    '<td>' + (index + 1) + '</td>' +
+                    '<td>' + escapeHtml(event.eventLabel || '') + '</td>' +
+                    '<td>' + escapeHtml(event.position || '') + '</td>' +
+                    '<td>' + (score !== '' ? escapeHtml(score) : '<span class="text-muted">—</span>') + '</td>' +
+                    '<td class="text-end">' + escapeHtml(points) + '</td>' +
+                '</tr>';
+            }).join('');
+
+            tableBody.innerHTML = rows;
+        }
+
+        function escapeHtml(value) {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        document.querySelectorAll('.participant-events-btn').forEach(function (button) {
+            button.addEventListener('click', function () {
+                var payload = button.getAttribute('data-participant-events');
+                if (!payload) {
+                    return;
+                }
+
+                try {
+                    var details = JSON.parse(payload);
+                } catch (error) {
+                    console.error('Unable to parse participant events payload', error);
+                    return;
+                }
+
+                modalTitle.textContent = details.participantName || 'Participant Events';
+                modalInstitution.textContent = details.institutionName || '';
+                renderEvents(details.events || []);
+
+                modalInstance.show();
+            });
+        });
+    });
+    </script>
+    <?php
     include __DIR__ . '/includes/footer.php';
 }
