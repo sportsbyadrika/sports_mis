@@ -156,7 +156,13 @@ $status_classes = [
         <h1 class="h4 mb-0">Participant Details</h1>
         <p class="text-muted mb-0">Review and manage the participant's registration.</p>
     </div>
-    <div>
+    <div class="d-flex gap-2">
+        <a href="event_staff_participant_print.php?participant_id=<?php echo (int) $participant_id; ?>" class="btn btn-outline-success" target="_blank" rel="noopener" title="Print participant profile">
+            <i class="bi bi-printer"></i>
+        </a>
+        <a href="event_staff_participant_edit.php?id=<?php echo (int) $participant_id; ?>" class="btn btn-outline-primary" title="Edit participant">
+            <i class="bi bi-pencil-square"></i>
+        </a>
         <a href="event_staff_participants.php" class="btn btn-outline-secondary">Back to Participants</a>
     </div>
 </div>

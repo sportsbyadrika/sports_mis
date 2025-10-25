@@ -44,6 +44,7 @@
                         <a class="nav-link dropdown-toggle" href="#" id="eventStaffRegistrationApproval" role="button" data-bs-toggle="dropdown" aria-expanded="false">Registration Approval</a>
                         <ul class="dropdown-menu" aria-labelledby="eventStaffRegistrationApproval">
                             <li><a class="dropdown-item" href="event_staff_participants.php">Participants</a></li>
+                            <li><a class="dropdown-item" href="event_staff_participant_lookup.php">Participant Lookup</a></li>
                             <li><a class="dropdown-item" href="event_staff_team_entries.php">Team Entries</a></li>
                             <li><a class="dropdown-item" href="institution_event_registrations.php">Institution Events</a></li>
                             <li><a class="dropdown-item" href="event_staff_fund_transfers.php">Fund Transfers</a></li>
