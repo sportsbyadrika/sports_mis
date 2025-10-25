@@ -35,6 +35,7 @@
                         <a class="nav-link dropdown-toggle" href="#" id="institutionAdminResults" role="button" data-bs-toggle="dropdown" aria-expanded="false">Result</a>
                         <ul class="dropdown-menu" aria-labelledby="institutionAdminResults">
                             <li><a class="dropdown-item" href="result_institution_points.php">Institution Points Summary</a></li>
+                            <li><a class="dropdown-item" href="result_institution_event_report.php">Institution Event Results</a></li>
                             <li><a class="dropdown-item" href="result_individual_top_participants.php">Top Individual Points</a></li>
                         </ul>
                     </li>
@@ -57,6 +58,7 @@
                             <li><a class="dropdown-item" href="result_team_events.php">Team Result Entry</a></li>
                             <li><a class="dropdown-item" href="result_institution_events.php">Institution Result Entry</a></li>
                             <li><a class="dropdown-item" href="result_institution_points.php">Institution Points Summary</a></li>
+                            <li><a class="dropdown-item" href="result_institution_event_report.php">Institution Event Results</a></li>
                             <li><a class="dropdown-item" href="result_individual_top_participants.php">Top Individual Points</a></li>
                             <li><a class="dropdown-item" href="result_institution_participation_certificates.php">Institution Wise Participation Certificate</a></li>
                         </ul>
